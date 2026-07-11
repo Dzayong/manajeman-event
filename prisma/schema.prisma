@@ -1,0 +1,367 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Users & roles ----------
+
+enum Role {
+  PENGURUS // himpunan admin: creates events, sees everything
+  PANITIA // generated committee account; event access via Membership
+}
+
+model User {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(120)
+  username          String    @unique @db.VarChar(60)
+  email             String?   @unique @db.VarChar(160)
+  passwordHash      String    @db.VarChar(255)
+  role              Role      @default(PANITIA)
+  mustResetPassword Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+
+  memberships      Membership[]
+  createdEvents    Event[]              @relation("EventCreator")
+  assignedTasks    Task[]               @relation("TaskPic")
+  createdTasks     Task[]               @relation("TaskCreator")
+  documents        Document[]
+  attendances      Attendance[]         @relation("AttendanceUser")
+  markedAttendance Attendance[]         @relation("AttendanceMarker")
+  openedSessions   AttendanceSession[]
+  financeRecords   FinanceRecord[]
+  activityLogs     ActivityLog[]
+  ruleAcks         RuleAcknowledgment[]
+  reports          Report[]
+}
+
+// ---------- Events & structure ----------
+
+enum EventStatus {
+  DRAFT
+  ONGOING
+  DONE
+}
+
+model Event {
+  id           Int         @id @default(autoincrement())
+  name         String      @db.VarChar(160)
+  description  String?     @db.Text
+  location     String?     @db.VarChar(160)
+  startDate    DateTime?   @db.Date
+  endDate      DateTime?   @db.Date
+  status       EventStatus @default(DRAFT)
+  rulesContent String?     @db.Text // tata tertib panitia, editable
+  rulesVersion Int         @default(1) // bumped on edit -> members re-acknowledge
+  createdById  Int
+  createdAt    DateTime    @default(now())
+
+  createdBy          User                 @relation("EventCreator", fields: [createdById], references: [id])
+  divisions          Division[]
+  memberships        Membership[]
+  milestones         Milestone[]
+  attendanceSessions AttendanceSession[]
+  rabItems           RabItem[]
+  financeRecords     FinanceRecord[]
+  ruleAcks           RuleAcknowledgment[]
+  activityLogs       ActivityLog[]
+  reports            Report[]
+}
+
+model Division {
+  id          Int     @id @default(autoincrement())
+  eventId     Int
+  name        String  @db.VarChar(120)
+  description String? @db.Text
+
+  event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  memberships    Membership[]
+  tasks          Task[]
+  documents      Document[]
+  rabItems       RabItem[]
+  financeRecords FinanceRecord[]
+
+  @@index([eventId])
+}
+
+// Event-level position. Core roles (KETUA_PANITIA/SEKRETARIS/BENDAHARA/SC)
+// have no division; KOORDINATOR/STAFF belong to one division.
+enum Position {
+  KETUA_PANITIA
+  SEKRETARIS
+  BENDAHARA
+  SC // steering committee: read-only across the event
+  KOORDINATOR
+  STAFF
+}
+
+model Membership {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  eventId    Int
+  divisionId Int?
+  position   Position @default(STAFF)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event    Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  division Division? @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, eventId])
+  @@index([eventId, divisionId])
+}
+
+// ---------- Tasks ----------
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Task {
+  id          Int        @id @default(autoincrement())
+  divisionId  Int
+  title       String     @db.VarChar(200)
+  description String?    @db.Text
+  status      TaskStatus @default(TODO)
+  picUserId   Int?
+  deadline    DateTime?  @db.Date
+  createdById Int?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  division       Division            @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  pic            User?               @relation("TaskPic", fields: [picUserId], references: [id], onDelete: SetNull)
+  createdBy      User?               @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  checklistItems TaskChecklistItem[]
+
+  @@index([divisionId, status])
+  @@index([deadline])
+}
+
+model TaskChecklistItem {
+  id        Int     @id @default(autoincrement())
+  taskId    Int
+  label     String  @db.VarChar(200)
+  isDone    Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+// ---------- Documents & timeline ----------
+
+enum DocumentType {
+  FILE
+  LINK
+}
+
+model Document {
+  id           Int          @id @default(autoincrement())
+  divisionId   Int
+  title        String       @db.VarChar(200)
+  type         DocumentType
+  url          String       @db.VarChar(500)
+  uploadedById Int?
+  createdAt    DateTime     @default(now())
+
+  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  uploadedBy User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([divisionId])
+}
+
+model Milestone {
+  id      Int       @id @default(autoincrement())
+  eventId Int
+  title   String    @db.VarChar(200)
+  dueDate DateTime? @db.Date
+  isDone  Boolean   @default(false)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+}
+
+// ---------- Attendance (per session, anti-fraud) ----------
+
+enum SessionMode {
+  QR_SELF // rotating one-time QR on organizer screen, members self check-in
+  SCAN_STRICT // organizer scans each member's personal QR at the door
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+}
+
+model AttendanceSession {
+  id         Int           @id @default(autoincrement())
+  eventId    Int
+  title      String        @db.VarChar(200)
+  mode       SessionMode   @default(QR_SELF)
+  status     SessionStatus @default(OPEN)
+  secret     String        @db.VarChar(64) // signs rotating tokens
+  openedById Int?
+  openedAt   DateTime      @default(now())
+  closedAt   DateTime?
+
+  event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  openedBy    User?             @relation(fields: [openedById], references: [id], onDelete: SetNull)
+  attendances Attendance[]
+  tokens      AttendanceToken[]
+
+  @@index([eventId, status])
+}
+
+// One-time tokens embedded in the rotating QR (QR_SELF mode)
+model AttendanceToken {
+  id        Int       @id @default(autoincrement())
+  sessionId Int
+  token     String    @unique @db.VarChar(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  usedById  Int?
+
+  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, expiresAt])
+}
+
+enum AttendanceMethod {
+  QR // self check-in via rotating one-time QR
+  SCAN // organizer scanned member's personal QR
+  MANUAL // organizer marked manually — always audited
+}
+
+model Attendance {
+  id           Int              @id @default(autoincrement())
+  sessionId    Int
+  userId       Int
+  method       AttendanceMethod @default(QR)
+  markedById   Int? // who scanned/marked (SCAN & MANUAL)
+  checkedInAt  DateTime         @default(now())
+
+  session  AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user     User              @relation("AttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+  markedBy User?             @relation("AttendanceMarker", fields: [markedById], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, userId])
+}
+
+// ---------- Finance: RAB (budget plan) -> receipts (realization) ----------
+
+model RabItem {
+  id         Int     @id @default(autoincrement())
+  eventId    Int
+  divisionId Int?
+  itemName   String  @db.VarChar(200)
+  quantity   Int     @default(1)
+  unitPrice  Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  note       String? @db.VarChar(255)
+
+  event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  division       Division?       @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+  financeRecords FinanceRecord[]
+
+  @@index([eventId, divisionId])
+}
+
+enum FinanceStatus {
+  DRAFT
+  CONFIRMED
+}
+
+model FinanceRecord {
+  id           Int           @id @default(autoincrement())
+  eventId      Int
+  divisionId   Int?
+  rabItemId    Int? // links a receipt to its budget line
+  uploadedById Int?
+  receiptUrl   String?       @db.VarChar(500)
+  totalAmount  Decimal       @default(0) @db.Decimal(12, 2)
+  note         String?       @db.VarChar(255)
+  status       FinanceStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+
+  event      Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  division   Division?     @relation(fields: [divisionId], references: [id], onDelete: SetNull)
+  rabItem    RabItem?      @relation(fields: [rabItemId], references: [id], onDelete: SetNull)
+  uploadedBy User?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  items      FinanceItem[]
+
+  @@index([eventId, divisionId])
+}
+
+model FinanceItem {
+  id              Int     @id @default(autoincrement())
+  financeRecordId Int
+  itemName        String  @db.VarChar(200)
+  quantity        Int     @default(1)
+  unitPrice       Decimal @default(0) @db.Decimal(12, 2)
+  subtotal        Decimal @default(0) @db.Decimal(12, 2)
+
+  financeRecord FinanceRecord @relation(fields: [financeRecordId], references: [id], onDelete: Cascade)
+
+  @@index([financeRecordId])
+}
+
+// ---------- Rules, activity, reports ----------
+
+model RuleAcknowledgment {
+  id             Int      @id @default(autoincrement())
+  eventId        Int
+  userId         Int
+  rulesVersion   Int
+  acknowledgedAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId, rulesVersion])
+}
+
+// Automatic trace of every meaningful action — feeds per-member activity recap
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  eventId    Int?
+  divisionId Int?
+  action     String   @db.VarChar(60) // e.g. task.update_status, document.upload
+  targetType String?  @db.VarChar(40)
+  targetId   Int?
+  detail     String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, userId, createdAt])
+}
+
+enum ReportType {
+  PROGRESS_SUMMARY
+  LPJ_DRAFT
+}
+
+// AI-generated then human-edited reports (progress summaries, LPJ draft)
+model Report {
+  id          Int        @id @default(autoincrement())
+  eventId     Int
+  type        ReportType
+  content     String     @db.LongText
+  createdById Int?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([eventId, type])
+}

@@ -39,7 +39,7 @@ export async function login(
     username: user.username,
   });
 
-  redirect("/dashboard");
+  redirect(user.mustResetPassword ? "/onboarding" : "/dashboard");
 }
 
 export async function logout(): Promise<void> {

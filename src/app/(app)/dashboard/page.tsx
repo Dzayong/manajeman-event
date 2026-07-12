@@ -174,8 +174,19 @@ export default async function DashboardPage() {
                   {m.division ? ` · Divisi ${m.division.name}` : ""}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="text-sm text-slate-500">
-                Workspace divisi hadir di milestone berikutnya (M2).
+              <CardContent className="flex flex-wrap gap-2">
+                {m.division && (
+                  <Button asChild size="sm">
+                    <Link href={`/divisions/${m.division.id}`}>
+                      Workspace divisi
+                    </Link>
+                  </Button>
+                )}
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/events/${m.event.id}/workspace`}>
+                    Ringkasan event
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ))}

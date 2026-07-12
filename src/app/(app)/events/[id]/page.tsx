@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin, Upload } from "lucide-react";
+import { CalendarDays, LayoutDashboard, MapPin, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { requirePengurus } from "@/lib/authz";
 import { Button } from "@/components/ui/button";
@@ -108,12 +108,20 @@ export default async function EventDetailPage({
             </TabsTrigger>
             <TabsTrigger value="rules">Aturan</TabsTrigger>
           </TabsList>
-          <Button asChild size="sm">
-            <Link href={`/events/${event.id}/import`}>
-              <Upload className="mr-1 h-4 w-4" />
-              Import panitia
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/events/${event.id}/workspace`}>
+                <LayoutDashboard className="mr-1 h-4 w-4" />
+                Workspace
+              </Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href={`/events/${event.id}/import`}>
+                <Upload className="mr-1 h-4 w-4" />
+                Import panitia
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <TabsContent value="divisions" className="mt-4">

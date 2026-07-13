@@ -13,7 +13,13 @@ export default async function AppLayout({
     <div className="flex min-h-screen flex-col bg-slate-50">
       <header className="border-b bg-white">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-          <Link href="/dashboard" className="font-semibold text-slate-900">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 font-semibold text-slate-900"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-white">
+              H
+            </span>
             Kepanitiaan HMIF
           </Link>
           <div className="flex items-center gap-3">

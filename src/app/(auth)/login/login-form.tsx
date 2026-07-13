@@ -15,7 +15,7 @@ export function LoginForm() {
   );
 
   return (
-    <Card>
+    <Card className="border-red-900/40 bg-card/60 backdrop-blur-md">
       <CardContent className="pt-6">
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
@@ -40,7 +40,7 @@ export function LoginForm() {
             />
           </div>
           {state.error && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-400">
               {state.error}
             </p>
           )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   ExternalLink,
@@ -16,20 +16,31 @@ import {
   deleteEventDocument,
   uploadEventFileDocument,
 } from "@/server/actions/event-documents";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DocumentPreviewDialog,
   type PreviewableDoc,
 } from "@/components/document-preview-dialog";
+import { DocumentFilterBar } from "@/components/document-filter-bar";
 import { getEmbedUrl } from "@/lib/embed-url";
+import { DOCUMENT_CATEGORIES } from "@/lib/document-categories";
 
 type DocumentRow = {
   id: number;
   title: string;
   type: "FILE" | "LINK";
   url: string;
+  category: string | null;
   uploadedBy: string | null;
   createdAt: string;
 };
@@ -47,8 +58,26 @@ export function EventDocumentsPanel({
   const [uploading, setUploading] = useState(false);
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkCategory, setLinkCategory] = useState("Surat");
   const [previewDoc, setPreviewDoc] = useState<PreviewableDoc>(null);
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(documents.map((d) => d.category).filter(Boolean))) as string[],
+    [documents],
+  );
+  const filteredDocs = useMemo(
+    () =>
+      documents.filter(
+        (d) =>
+          (!activeCategory || d.category === activeCategory) &&
+          d.title.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [documents, activeCategory, search],
+  );
 
   function handleAddLink(e: React.FormEvent) {
     e.preventDefault();
@@ -56,6 +85,7 @@ export function EventDocumentsPanel({
       const result = await addEventLinkDocument(eventId, {
         title: linkTitle,
         url: linkUrl,
+        category: linkCategory,
       });
       if (result.error) {
         toast.error(result.error);
@@ -124,6 +154,18 @@ export function EventDocumentsPanel({
                 className="min-w-56 flex-1"
                 aria-label="URL dokumen event"
               />
+              <Select value={linkCategory} onValueChange={setLinkCategory}>
+                <SelectTrigger className="w-32" aria-label="Kategori dokumen">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 type="submit"
                 size="sm"
@@ -163,61 +205,86 @@ export function EventDocumentsPanel({
             Belum ada dokumen administratif.
           </p>
         ) : (
-          <div className="space-y-2">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-3 rounded-md border p-2.5"
-              >
-                {doc.type === "LINK" ? (
-                  <Link2 className="h-4 w-4 shrink-0 text-blue-600" />
-                ) : (
-                  <FileText className="h-4 w-4 shrink-0 text-slate-500" />
-                )}
-                <div className="min-w-0 flex-1">
-                  {doc.type === "FILE" || getEmbedUrl(doc.url) ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPreviewDoc({ title: doc.title, url: doc.url })
-                      }
-                      className="flex items-center gap-1 truncate text-sm font-medium text-slate-900 hover:text-blue-700"
-                    >
-                      {doc.title}
-                    </button>
-                  ) : (
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 truncate text-sm font-medium text-slate-900 hover:text-blue-700"
-                    >
-                      {doc.title}
-                      <ExternalLink className="h-3 w-3 shrink-0 text-slate-400" />
-                    </a>
-                  )}
-                  <p className="text-xs text-slate-500">
-                    {doc.uploadedBy ?? "-"} ·{" "}
-                    {new Date(doc.createdAt).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </p>
-                </div>
-                {canManage && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(doc)}
-                    disabled={pending}
-                    aria-label={`Hapus ${doc.title}`}
+          <>
+            <DocumentFilterBar
+              categories={categories}
+              activeCategory={activeCategory}
+              onCategoryChange={setActiveCategory}
+              search={search}
+              onSearchChange={setSearch}
+            />
+            {filteredDocs.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-500">
+                Tidak ada dokumen yang cocok.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {filteredDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center gap-3 rounded-md border p-2.5"
                   >
-                    <Trash2 className="h-4 w-4 text-slate-400" />
-                  </Button>
-                )}
+                    {doc.type === "LINK" ? (
+                      <Link2 className="h-4 w-4 shrink-0 text-blue-600" />
+                    ) : (
+                      <FileText className="h-4 w-4 shrink-0 text-slate-500" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {doc.type === "FILE" || getEmbedUrl(doc.url) ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewDoc({ title: doc.title, url: doc.url })
+                            }
+                            className="flex min-w-0 items-center gap-1 truncate text-sm font-medium text-slate-900 hover:text-blue-700"
+                          >
+                            {doc.title}
+                          </button>
+                        ) : (
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex min-w-0 items-center gap-1 truncate text-sm font-medium text-slate-900 hover:text-blue-700"
+                          >
+                            {doc.title}
+                            <ExternalLink className="h-3 w-3 shrink-0 text-slate-400" />
+                          </a>
+                        )}
+                        {doc.category && (
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0 text-[10px] font-normal"
+                          >
+                            {doc.category}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {doc.uploadedBy ?? "-"} ·{" "}
+                        {new Date(doc.createdAt).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </p>
+                    </div>
+                    {canManage && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(doc)}
+                        disabled={pending}
+                        aria-label={`Hapus ${doc.title}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-slate-400" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </CardContent>
       <DocumentPreviewDialog doc={previewDoc} onOpenChange={() => setPreviewDoc(null)} />

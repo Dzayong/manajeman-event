@@ -28,6 +28,7 @@ async function authorizeDivision(divisionId: number) {
 const linkSchema = z.object({
   title: z.string().trim().min(1, "Judul wajib diisi").max(200),
   url: z.string().trim().url("URL tidak valid").max(500),
+  category: z.string().trim().max(40).optional(),
 });
 
 export async function addLinkDocument(
@@ -45,6 +46,7 @@ export async function addLinkDocument(
       title: parsed.data.title,
       type: "LINK",
       url: parsed.data.url,
+      category: parsed.data.category || null,
       uploadedById: auth.session.userId,
     },
   });
@@ -86,12 +88,15 @@ export async function uploadFileDocument(
     Buffer.from(await file.arrayBuffer()),
   );
 
+  const category = String(formData.get("category") ?? "").trim();
+
   const doc = await db.document.create({
     data: {
       divisionId,
       title: file.name,
       type: "FILE",
       url: `/uploads/${divisionId}/${fileName}`,
+      category: category || null,
       uploadedById: auth.session.userId,
     },
   });

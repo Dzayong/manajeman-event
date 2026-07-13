@@ -171,6 +171,7 @@ model Document {
   title        String       @db.VarChar(200)
   type         DocumentType
   url          String       @db.VarChar(500)
+  category     String?      @db.VarChar(40) // Rundown, Surat, Desain, Keuangan, Dokumentasi, Lainnya
   uploadedById Int?
   createdAt    DateTime     @default(now())
 

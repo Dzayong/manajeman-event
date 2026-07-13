@@ -25,6 +25,7 @@ async function authorizeEvent(eventId: number) {
 const linkSchema = z.object({
   title: z.string().trim().min(1, "Judul wajib diisi").max(200),
   url: z.string().trim().url("URL tidak valid").max(500),
+  category: z.string().trim().max(40).optional(),
 });
 
 export async function addEventLinkDocument(
@@ -42,6 +43,7 @@ export async function addEventLinkDocument(
       title: parsed.data.title,
       type: "LINK",
       url: parsed.data.url,
+      category: parsed.data.category || null,
       uploadedById: auth.session.userId,
     },
   });
@@ -87,12 +89,15 @@ export async function uploadEventFileDocument(
     Buffer.from(await file.arrayBuffer()),
   );
 
+  const category = String(formData.get("category") ?? "").trim();
+
   const doc = await db.document.create({
     data: {
       eventId,
       title: file.name,
       type: "FILE",
       url: `/uploads/event-docs/${eventId}/${safeName}`,
+      category: category || null,
       uploadedById: auth.session.userId,
     },
   });

@@ -129,16 +129,29 @@ export async function extractRoster(
 
 // ---------- Progress summary & LPJ draft ----------
 
-const SUMMARY_MOCK = `Ringkasan progress (contoh mode mock):
+/**
+ * Mock mode used to return canned boilerplate unrelated to the actual
+ * event — meaning testing "Rangkum Progress" always showed the same
+ * fictional paragraph no matter what data existed. That made it
+ * impossible to sanity-check the feature without spending real API
+ * quota. Instead, mock now echoes the REAL context that would be sent
+ * to the AI, so you can verify your data flows through correctly before
+ * switching AI_MOCK off.
+ */
+function mockSummary(context: string): string {
+  return `RINGKASAN PROGRESS — MODE MOCK
 
-Secara keseluruhan persiapan berjalan baik dengan progress 45%. Divisi Logistik dan Konsumsi on-track — booking ruangan selesai dan vendor katering sudah deal. Divisi Acara perlu perhatian: rundown belum final dan brief MC belum dimulai, padahal gladi bersih tinggal seminggu.
+Ini BUKAN narasi AI — ini data mentah yang akan dikirim ke AI asli. Nyalakan
+AI_MOCK=false + isi OPENAI_API_KEY untuk melihat AI menulis ini jadi
+paragraf naratif (divisi on-track, tertinggal, dan risiko utama).
 
-Risiko utama: (1) rundown yang terlambat menghambat brief MC dan gladi; (2) dua tugas Humas melewati deadline tanpa update. Disarankan koordinator Acara memecah tugas rundown dan menetapkan PIC hari ini.`;
+${context}`;
+}
 
 export async function summarizeProgress(context: string): Promise<string> {
   if (isMock()) {
     await new Promise((r) => setTimeout(r, 1500));
-    return SUMMARY_MOCK;
+    return mockSummary(context);
   }
 
   const response = await getClient().chat.completions.create({
@@ -156,22 +169,18 @@ export async function summarizeProgress(context: string): Promise<string> {
   return response.choices[0]?.message?.content ?? "";
 }
 
-const LPJ_MOCK = `LAPORAN PERTANGGUNGJAWABAN (draft mode mock)
+function mockLpj(context: string): string {
+  return `DRAFT LPJ — MODE MOCK
 
-A. PENDAHULUAN
-Kegiatan telah dilaksanakan sesuai rencana dengan melibatkan seluruh divisi kepanitiaan.
+Ini BUKAN narasi AI — ini data mentah (termasuk susunan kepanitiaan dan
+realisasi anggaran per pos) yang akan dikirim ke AI asli. Nyalakan
+AI_MOCK=false + isi OPENAI_API_KEY untuk melihat AI menyusun ini jadi LPJ
+resmi: Pendahuluan, Nama & Tema Kegiatan, Waktu & Tempat, Susunan
+Kepanitiaan, Pelaksanaan per Divisi, Realisasi Anggaran (tabel), Evaluasi,
+Penutup.
 
-B. PELAKSANAAN KEGIATAN
-Seluruh divisi menjalankan tugasnya: Acara menyusun rundown dan memandu jalannya kegiatan, Logistik menyiapkan tempat dan peralatan, Konsumsi menyediakan konsumsi peserta dan panitia, Humas menangani publikasi dan undangan, serta Korlap mengatur alur peserta.
-
-C. REALISASI ANGGARAN
-Realisasi pengeluaran tercatat melalui sistem dengan bukti struk terlampir. Rincian per pos anggaran tersedia pada lampiran keuangan.
-
-D. EVALUASI
-Kehadiran panitia pada rapat dan hari-H tercatat baik. Beberapa tugas melewati tenggat dan menjadi catatan perbaikan untuk kegiatan berikutnya.
-
-E. PENUTUP
-Demikian laporan ini disusun sebagai bentuk pertanggungjawaban panitia.`;
+${context}`;
+}
 
 // ---------- Chat-based report revision ----------
 
@@ -217,7 +226,7 @@ export async function reviseReport(params: {
 export async function draftLpj(context: string): Promise<string> {
   if (isMock()) {
     await new Promise((r) => setTimeout(r, 1800));
-    return LPJ_MOCK;
+    return mockLpj(context);
   }
 
   const response = await getClient().chat.completions.create({
@@ -226,11 +235,11 @@ export async function draftLpj(context: string): Promise<string> {
       {
         role: "system",
         content:
-          "Kamu asisten sekretaris himpunan mahasiswa. Susun DRAFT Laporan Pertanggungjawaban (LPJ) kegiatan dari data berikut, dengan struktur: Pendahuluan, Pelaksanaan Kegiatan (per divisi), Realisasi Anggaran (ringkas, sebut total anggaran vs realisasi), Evaluasi (kehadiran & kendala), Penutup. Bahasa Indonesia formal. Maksimal 500 kata. Jangan mengarang angka yang tidak ada di data.",
+          "Kamu asisten sekretaris himpunan mahasiswa. Susun DRAFT Laporan Pertanggungjawaban (LPJ) resmi dari data berikut, mengikuti struktur baku LPJ kampus: I. Pendahuluan (latar belakang & tujuan singkat), II. Nama dan Tema Kegiatan, III. Waktu dan Tempat Pelaksanaan, IV. Susunan Kepanitiaan (tulis SEMUA nama sesuai data, dikelompokkan per divisi), V. Gambaran Pelaksanaan per Divisi, VI. Realisasi Anggaran (buat tabel markdown: Pos | Anggaran | Realisasi | Selisih, lalu baris Total), VII. Evaluasi dan Kendala, VIII. Penutup. Gunakan HANYA nama, angka, dan data yang benar-benar ada di bawah — jangan mengarang siapa pun atau angka apa pun yang tidak tercantum. Bahasa Indonesia formal. Maksimal 700 kata.",
       },
       { role: "user", content: context },
     ],
-    max_tokens: 1200,
+    max_tokens: 1800,
   });
   return response.choices[0]?.message?.content ?? "";
 }

@@ -198,6 +198,7 @@ export default async function DivisionWorkspacePage({
               title: d.title,
               type: d.type,
               url: d.url,
+              category: d.category,
               uploadedBy: d.uploadedBy?.name ?? null,
               createdAt: d.createdAt.toISOString(),
             }))}

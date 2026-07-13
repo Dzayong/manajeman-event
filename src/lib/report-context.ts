@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
+import { POSITION_LABELS } from "@/lib/positions";
 
-/** Compile event data into a plain-text context block for the AI. */
+/**
+ * Compile event data into a plain-text context block for the AI.
+ * `includeFinance` also gates the two sections a real LPJ needs but a
+ * progress summary doesn't: full committee roster and itemized RAB.
+ */
 export async function buildEventContext(
   eventId: number,
   options: { includeFinance: boolean },
@@ -19,6 +24,13 @@ export async function buildEventContext(
       milestones: true,
       attendanceSessions: {
         include: { _count: { select: { attendances: true } } },
+      },
+      memberships: {
+        include: {
+          user: { select: { name: true } },
+          division: { select: { name: true } },
+        },
+        orderBy: [{ position: "asc" }, { id: "asc" }],
       },
       _count: { select: { memberships: true } },
     },
@@ -66,18 +78,57 @@ export async function buildEventContext(
   }
 
   if (options.includeFinance) {
-    const [rabSum, realizedSum] = await Promise.all([
-      db.rabItem.aggregate({ where: { eventId }, _sum: { subtotal: true } }),
-      db.financeRecord.aggregate({
+    // Full roster -- an LPJ needs a "Susunan Kepanitiaan" section with names.
+    lines.push("", "SUSUNAN KEPANITIAAN:");
+    const core = event.memberships.filter((m) => !m.division);
+    for (const m of core) {
+      lines.push(`- ${m.user.name}: ${POSITION_LABELS[m.position]}`);
+    }
+    const byDivision = new Map<string, string[]>();
+    for (const m of event.memberships) {
+      if (!m.division) continue;
+      const list = byDivision.get(m.division.name) ?? [];
+      list.push(`${m.user.name} (${POSITION_LABELS[m.position]})`);
+      byDivision.set(m.division.name, list);
+    }
+    for (const [divisionName, members] of byDivision) {
+      lines.push(`- Divisi ${divisionName}: ${members.join(", ")}`);
+    }
+
+    // Itemized RAB -- an LPJ needs anggaran vs realisasi per pos, not just totals.
+    const [rabItems, realizedByRab] = await Promise.all([
+      db.rabItem.findMany({
+        where: { eventId },
+        include: { division: { select: { name: true } } },
+        orderBy: { id: "asc" },
+      }),
+      db.financeRecord.groupBy({
+        by: ["rabItemId"],
         where: { eventId, status: "CONFIRMED" },
         _sum: { totalAmount: true },
       }),
     ]);
+    const realizedMap = new Map(
+      realizedByRab.map((r) => [r.rabItemId, Number(r._sum.totalAmount ?? 0)]),
+    );
+
+    lines.push("", "REALISASI ANGGARAN (per pos):");
+    if (rabItems.length === 0) {
+      lines.push("- Belum ada pos RAB yang diinput.");
+    }
+    let totalBudget = 0;
+    let totalRealized = 0;
+    for (const item of rabItems) {
+      const subtotal = Number(item.subtotal);
+      const realized = realizedMap.get(item.id) ?? 0;
+      totalBudget += subtotal;
+      totalRealized += realized;
+      lines.push(
+        `- ${item.itemName} (${item.division?.name ?? "Umum"}): anggaran Rp${subtotal.toLocaleString("id-ID")}, realisasi Rp${realized.toLocaleString("id-ID")}, selisih Rp${(subtotal - realized).toLocaleString("id-ID")}`,
+      );
+    }
     lines.push(
-      "",
-      "KEUANGAN:",
-      `- Total anggaran (RAB): Rp${Number(rabSum._sum.subtotal ?? 0).toLocaleString("id-ID")}`,
-      `- Total realisasi terkonfirmasi: Rp${Number(realizedSum._sum.totalAmount ?? 0).toLocaleString("id-ID")}`,
+      `- TOTAL: anggaran Rp${totalBudget.toLocaleString("id-ID")}, realisasi Rp${totalRealized.toLocaleString("id-ID")}, selisih Rp${(totalBudget - totalRealized).toLocaleString("id-ID")}`,
     );
   }
 

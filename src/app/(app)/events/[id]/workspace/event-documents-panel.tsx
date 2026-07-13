@@ -19,6 +19,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  DocumentPreviewDialog,
+  type PreviewableDoc,
+} from "@/components/document-preview-dialog";
 
 type DocumentRow = {
   id: number;
@@ -42,6 +46,7 @@ export function EventDocumentsPanel({
   const [uploading, setUploading] = useState(false);
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [previewDoc, setPreviewDoc] = useState<PreviewableDoc>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleAddLink(e: React.FormEvent) {
@@ -169,15 +174,27 @@ export function EventDocumentsPanel({
                   <FileText className="h-4 w-4 shrink-0 text-slate-500" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <a
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 truncate text-sm font-medium text-slate-900 hover:text-blue-700"
-                  >
-                    {doc.title}
-                    <ExternalLink className="h-3 w-3 shrink-0 text-slate-400" />
-                  </a>
+                  {doc.type === "FILE" ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPreviewDoc({ title: doc.title, url: doc.url })
+                      }
+                      className="flex items-center gap-1 truncate text-sm font-medium text-slate-900 hover:text-blue-700"
+                    >
+                      {doc.title}
+                    </button>
+                  ) : (
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 truncate text-sm font-medium text-slate-900 hover:text-blue-700"
+                    >
+                      {doc.title}
+                      <ExternalLink className="h-3 w-3 shrink-0 text-slate-400" />
+                    </a>
+                  )}
                   <p className="text-xs text-slate-500">
                     {doc.uploadedBy ?? "-"} ·{" "}
                     {new Date(doc.createdAt).toLocaleDateString("id-ID", {
@@ -202,6 +219,7 @@ export function EventDocumentsPanel({
           </div>
         )}
       </CardContent>
+      <DocumentPreviewDialog doc={previewDoc} onOpenChange={() => setPreviewDoc(null)} />
     </Card>
   );
 }

@@ -69,6 +69,7 @@ model Event {
   ruleAcks           RuleAcknowledgment[]
   activityLogs       ActivityLog[]
   reports            Report[]
+  documents          Document[]
 }
 
 model Division {
@@ -161,19 +162,24 @@ enum DocumentType {
   LINK
 }
 
+// divisionId set -> division workspace doc. eventId set (divisionId null) ->
+// event-level administrative doc (proposal, surat izin, surat tugas, dst).
 model Document {
   id           Int          @id @default(autoincrement())
-  divisionId   Int
+  divisionId   Int?
+  eventId      Int?
   title        String       @db.VarChar(200)
   type         DocumentType
   url          String       @db.VarChar(500)
   uploadedById Int?
   createdAt    DateTime     @default(now())
 
-  division   Division @relation(fields: [divisionId], references: [id], onDelete: Cascade)
-  uploadedBy User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  division   Division? @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+  event      Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uploadedBy User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([divisionId])
+  @@index([eventId])
 }
 
 model Milestone {

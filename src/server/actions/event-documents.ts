@@ -7,22 +7,19 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { logActivity } from "@/lib/activity";
-import { getEventAccess, canEditDivision } from "@/lib/permissions";
+import { getEventAccess } from "@/lib/permissions";
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
-async function authorizeDivision(divisionId: number) {
+async function authorizeEvent(eventId: number) {
   const session = await requireSession();
-  const division = await db.division.findUnique({
-    where: { id: divisionId },
-    select: { id: true, eventId: true },
-  });
-  if (!division) return { error: "Divisi tidak ditemukan." as const };
-  const access = await getEventAccess(session, division.eventId);
-  if (!access || !canEditDivision(access, divisionId)) {
-    return { error: "Kamu tidak punya akses mengubah divisi ini." as const };
+  const access = await getEventAccess(session, eventId);
+  if (!access || !access.canManageEvent) {
+    return {
+      error: "Hanya Pengurus, Ketua, atau Sekretaris." as const,
+    };
   }
-  return { session, division };
+  return { session };
 }
 
 const linkSchema = z.object({
@@ -30,18 +27,18 @@ const linkSchema = z.object({
   url: z.string().trim().url("URL tidak valid").max(500),
 });
 
-export async function addLinkDocument(
-  divisionId: number,
+export async function addEventLinkDocument(
+  eventId: number,
   input: z.infer<typeof linkSchema>,
 ): Promise<{ error?: string }> {
-  const auth = await authorizeDivision(divisionId);
+  const auth = await authorizeEvent(eventId);
   if ("error" in auth) return { error: auth.error };
   const parsed = linkSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const doc = await db.document.create({
     data: {
-      divisionId,
+      eventId,
       title: parsed.data.title,
       type: "LINK",
       url: parsed.data.url,
@@ -51,22 +48,21 @@ export async function addLinkDocument(
 
   logActivity({
     userId: auth.session.userId,
-    eventId: auth.division.eventId,
-    divisionId,
-    action: "document.link",
+    eventId,
+    action: "event_document.link",
     targetType: "document",
     targetId: doc.id,
     detail: doc.title,
   });
-  revalidatePath(`/divisions/${divisionId}`);
+  revalidatePath(`/events/${eventId}/workspace`);
   return {};
 }
 
-export async function uploadFileDocument(
-  divisionId: number,
+export async function uploadEventFileDocument(
+  eventId: number,
   formData: FormData,
 ): Promise<{ error?: string }> {
-  const auth = await authorizeDivision(divisionId);
+  const auth = await authorizeEvent(eventId);
   if ("error" in auth) return { error: auth.error };
 
   const file = formData.get("file");
@@ -77,58 +73,61 @@ export async function uploadFileDocument(
     return { error: "Ukuran file maksimal 10 MB." };
   }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileName = `${Date.now()}-${safeName}`;
-  const dir = path.join(process.cwd(), "public", "uploads", String(divisionId));
+  const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const dir = path.join(
+    process.cwd(),
+    "public",
+    "uploads",
+    "event-docs",
+    String(eventId),
+  );
   await mkdir(dir, { recursive: true });
   await writeFile(
-    path.join(dir, fileName),
+    path.join(dir, safeName),
     Buffer.from(await file.arrayBuffer()),
   );
 
   const doc = await db.document.create({
     data: {
-      divisionId,
+      eventId,
       title: file.name,
       type: "FILE",
-      url: `/uploads/${divisionId}/${fileName}`,
+      url: `/uploads/event-docs/${eventId}/${safeName}`,
       uploadedById: auth.session.userId,
     },
   });
 
   logActivity({
     userId: auth.session.userId,
-    eventId: auth.division.eventId,
-    divisionId,
-    action: "document.upload",
+    eventId,
+    action: "event_document.upload",
     targetType: "document",
     targetId: doc.id,
     detail: doc.title,
   });
-  revalidatePath(`/divisions/${divisionId}`);
+  revalidatePath(`/events/${eventId}/workspace`);
   return {};
 }
 
-export async function deleteDocument(
+export async function deleteEventDocument(
   documentId: number,
 ): Promise<{ error?: string }> {
   const doc = await db.document.findUnique({
     where: { id: documentId },
-    select: { divisionId: true, title: true },
+    select: { eventId: true, title: true },
   });
-  if (!doc?.divisionId) return { error: "Dokumen tidak ditemukan." };
-  const auth = await authorizeDivision(doc.divisionId);
+  if (!doc?.eventId) return { error: "Dokumen tidak ditemukan." };
+  const auth = await authorizeEvent(doc.eventId);
   if ("error" in auth) return { error: auth.error };
 
   await db.document.delete({ where: { id: documentId } });
 
   logActivity({
     userId: auth.session.userId,
-    eventId: auth.division.eventId,
-    divisionId: doc.divisionId,
-    action: "document.delete",
+    eventId: doc.eventId,
+    action: "event_document.delete",
     detail: doc.title,
   });
-  revalidatePath(`/divisions/${doc.divisionId}`);
+  revalidatePath(`/events/${doc.eventId}/workspace`);
   return {};
 }

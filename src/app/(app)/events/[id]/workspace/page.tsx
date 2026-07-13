@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { MilestonesPanel } from "./milestones-panel";
 import { AttendancePanel } from "./attendance-panel";
 import { AiPanel } from "./ai-panel";
+import { EventDocumentsPanel } from "./event-documents-panel";
 
 export const metadata = { title: "Workspace event — Sistem Kepanitiaan HMIF" };
 
@@ -48,6 +49,11 @@ export default async function EventWorkspacePage({
         orderBy: { id: "asc" },
       },
       reports: { orderBy: { createdAt: "desc" }, take: 5 },
+      documents: {
+        where: { divisionId: null },
+        include: { uploadedBy: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
   if (!event) notFound();
@@ -102,6 +108,19 @@ export default async function EventWorkspacePage({
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
+          <EventDocumentsPanel
+            eventId={event.id}
+            canManage={manager}
+            documents={event.documents.map((d) => ({
+              id: d.id,
+              title: d.title,
+              type: d.type,
+              url: d.url,
+              uploadedBy: d.uploadedBy?.name ?? null,
+              createdAt: d.createdAt.toISOString(),
+            }))}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Progress per divisi</CardTitle>

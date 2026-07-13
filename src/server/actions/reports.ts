@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { logActivity } from "@/lib/activity";
 import { getEventAccess } from "@/lib/permissions";
-import { summarizeProgress, draftLpj } from "@/lib/ai";
+import { summarizeProgress, draftLpj, reviseReport } from "@/lib/ai";
 import { buildEventContext } from "@/lib/report-context";
 
 async function authorizeManage(eventId: number) {
@@ -78,4 +78,49 @@ export async function updateReport(
   });
   revalidatePath(`/events/${report.eventId}/reports/${reportId}`);
   return {};
+}
+
+/** Chat-driven revision: user gives an instruction, AI rewrites the whole
+ * document and replies with a short confirmation. Chat history itself is
+ * kept client-side only — the document (the artifact that matters for the
+ * LPJ) is persisted on every turn. */
+export async function reviseReportViaChat(
+  reportId: number,
+  instruction: string,
+): Promise<{ reply?: string; content?: string; error?: string }> {
+  const trimmed = instruction.trim();
+  if (!trimmed) return { error: "Tulis instruksi dulu." };
+
+  const report = await db.report.findUnique({ where: { id: reportId } });
+  if (!report) return { error: "Laporan tidak ditemukan." };
+  const auth = await authorizeManage(report.eventId);
+  if ("error" in auth) return { error: auth.error };
+
+  let result;
+  try {
+    result = await reviseReport({
+      type: report.type,
+      currentContent: report.content,
+      instruction: trimmed,
+    });
+  } catch (e) {
+    console.error("revise report failed:", e);
+    return { error: "AI gagal merevisi — coba lagi." };
+  }
+
+  await db.report.update({
+    where: { id: reportId },
+    data: { content: result.revisedContent },
+  });
+
+  logActivity({
+    userId: auth.session.userId,
+    eventId: report.eventId,
+    action: "report.chat_revise",
+    targetType: "report",
+    targetId: reportId,
+    detail: trimmed.slice(0, 100),
+  });
+  revalidatePath(`/events/${report.eventId}/reports/${reportId}`);
+  return { reply: result.reply, content: result.revisedContent };
 }

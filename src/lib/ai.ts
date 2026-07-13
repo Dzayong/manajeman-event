@@ -173,6 +173,47 @@ Kehadiran panitia pada rapat dan hari-H tercatat baik. Beberapa tugas melewati t
 E. PENUTUP
 Demikian laporan ini disusun sebagai bentuk pertanggungjawaban panitia.`;
 
+// ---------- Chat-based report revision ----------
+
+export type ReviseResult = { reply: string; revisedContent: string };
+
+export async function reviseReport(params: {
+  type: "PROGRESS_SUMMARY" | "LPJ_DRAFT";
+  currentContent: string;
+  instruction: string;
+}): Promise<ReviseResult> {
+  if (isMock()) {
+    await new Promise((r) => setTimeout(r, 900));
+    return {
+      reply: `(Mode mock) Sudah kutandai revisi sesuai instruksi. Di mode AI asli, isi dokumen akan benar-benar diubah mengikuti permintaanmu.`,
+      revisedContent: `${params.currentContent}\n\n[Revisi mock] ${params.instruction}`,
+    };
+  }
+
+  const label =
+    params.type === "LPJ_DRAFT" ? "draft LPJ" : "ringkasan progress";
+
+  const response = await getClient().chat.completions.create({
+    model: MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `Kamu asisten sekretaris himpunan yang membantu merevisi ${label} lewat percakapan. Balas HANYA JSON valid: {"reply":"...","revised_content":"..."}. "reply" adalah balasan singkat (maksimal 2 kalimat) menjelaskan apa yang kamu ubah, bahasa Indonesia. "revised_content" adalah versi LENGKAP dokumen setelah revisi (bukan hanya bagian yang berubah), bahasa Indonesia formal. Jangan mengarang data yang tidak ada di dokumen asli.`,
+      },
+      {
+        role: "user",
+        content: `DOKUMEN SAAT INI:\n${params.currentContent}\n\nINSTRUKSI REVISI:\n${params.instruction}`,
+      },
+    ],
+    max_tokens: 1500,
+  });
+
+  const parsed = parseJsonBlock<{ reply: string; revised_content: string }>(
+    response.choices[0]?.message?.content ?? "{}",
+  );
+  return { reply: parsed.reply, revisedContent: parsed.revised_content };
+}
+
 export async function draftLpj(context: string): Promise<string> {
   if (isMock()) {
     await new Promise((r) => setTimeout(r, 1800));

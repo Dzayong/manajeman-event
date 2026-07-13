@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { getEventAccess } from "@/lib/permissions";
-import { ReportEditor } from "./report-editor";
+import { ReportWorkspace } from "./report-workspace";
 
 export const metadata = { title: "Laporan — Sistem Kepanitiaan HMIF" };
 
@@ -47,12 +47,13 @@ export default async function ReportPage({
           month: "long",
           year: "numeric",
         })}{" "}
-        — silakan edit sesuai kebutuhan lalu simpan.
+        — minta AI merevisi lewat chat, atau edit langsung di sebelah kiri.
       </p>
       <div className="mt-6">
-        <ReportEditor
+        <ReportWorkspace
           reportId={report.id}
-          content={report.content}
+          type={report.type}
+          initialContent={report.content}
           editable={access.canManageEvent}
         />
       </div>

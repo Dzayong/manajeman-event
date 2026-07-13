@@ -230,6 +230,11 @@ export function ImportWizard({
     });
   }
 
+  async function copyField(value: string, label: string) {
+    await navigator.clipboard.writeText(value);
+    toast.success(`${label} disalin`);
+  }
+
   async function copyAccounts() {
     if (!results) return;
     const text = results
@@ -275,10 +280,28 @@ export function ImportWizard({
                 <TableRow key={a.username}>
                   <TableCell className="font-medium">{a.name}</TableCell>
                   <TableCell className="font-mono text-sm">
-                    {a.username}
+                    <button
+                      type="button"
+                      onClick={() => copyField(a.username, "Username")}
+                      className="flex items-center gap-1 hover:text-blue-700"
+                      title="Salin username"
+                    >
+                      {a.username}
+                      <Copy className="h-3 w-3 shrink-0 text-slate-400" />
+                    </button>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
-                    {a.temporaryPassword}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyField(a.temporaryPassword, "Password")
+                      }
+                      className="flex items-center gap-1 hover:text-blue-700"
+                      title="Salin password"
+                    >
+                      {a.temporaryPassword}
+                      <Copy className="h-3 w-3 shrink-0 text-slate-400" />
+                    </button>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">

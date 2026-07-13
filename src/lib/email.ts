@@ -18,6 +18,27 @@ function getTransport() {
   });
 }
 
+export async function sendMail(params: {
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<EmailStatus> {
+  if (isMock()) {
+    console.log(`[email mock] to=${params.to} subject="${params.subject}"`);
+    return "mocked";
+  }
+  try {
+    await getTransport().sendMail({
+      from: `"Sistem Kepanitiaan HMIF" <${process.env.SMTP_USER}>`,
+      ...params,
+    });
+    return "sent";
+  } catch (e) {
+    console.error("send email failed:", e);
+    return "failed";
+  }
+}
+
 export async function sendAccountEmail(params: {
   to: string;
   name: string;

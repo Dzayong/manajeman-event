@@ -66,6 +66,16 @@ export function canEditDivision(
   return access.divisionId === divisionId;
 }
 
+/** Who may manage RAB and expense records. */
+export function canManageFinance(access: EventAccess): boolean {
+  if (access.readOnly) return false;
+  return (
+    access.isPengurus ||
+    access.canManageEvent ||
+    access.position === "BENDAHARA"
+  );
+}
+
 /** Who may run attendance sessions and edit milestones. */
 export function canOperateEvent(access: EventAccess): boolean {
   if (access.readOnly) return false;

@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, Eye } from "lucide-react";
+import { ArrowRight, Eye, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { getEventAccess, canOperateEvent } from "@/lib/permissions";
 import { POSITION_LABELS } from "@/lib/positions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { MilestonesPanel } from "./milestones-panel";
 import { AttendancePanel } from "./attendance-panel";
+import { AiPanel } from "./ai-panel";
 
 export const metadata = { title: "Workspace event — Sistem Kepanitiaan HMIF" };
 
@@ -45,6 +47,7 @@ export default async function EventWorkspacePage({
         include: { user: { select: { id: true, name: true } } },
         orderBy: { id: "asc" },
       },
+      reports: { orderBy: { createdAt: "desc" }, take: 5 },
     },
   });
   if (!event) notFound();
@@ -80,12 +83,20 @@ export default async function EventWorkspacePage({
             <Badge>{POSITION_LABELS[access.position]}</Badge>
           )}
         </div>
-        <div className="w-full max-w-56">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-500">Progress keseluruhan</span>
-            <span className="font-medium text-slate-900">{overall}%</span>
+        <div className="flex items-center gap-4">
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/events/${event.id}/finance`}>
+              <Wallet className="mr-1 h-4 w-4" />
+              Keuangan
+            </Link>
+          </Button>
+          <div className="w-44">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500">Progress</span>
+              <span className="font-medium text-slate-900">{overall}%</span>
+            </div>
+            <Progress value={overall} className="mt-1 h-2" />
           </div>
-          <Progress value={overall} className="mt-1 h-2" />
         </div>
       </div>
 
@@ -138,16 +149,28 @@ export default async function EventWorkspacePage({
           />
         </div>
 
-        <MilestonesPanel
-          eventId={event.id}
-          canManage={manager}
-          milestones={event.milestones.map((m) => ({
-            id: m.id,
-            title: m.title,
-            dueDate: m.dueDate ? m.dueDate.toISOString() : null,
-            isDone: m.isDone,
-          }))}
-        />
+        <div className="space-y-6">
+          <MilestonesPanel
+            eventId={event.id}
+            canManage={manager}
+            milestones={event.milestones.map((m) => ({
+              id: m.id,
+              title: m.title,
+              dueDate: m.dueDate ? m.dueDate.toISOString() : null,
+              isDone: m.isDone,
+            }))}
+          />
+          <AiPanel
+            eventId={event.id}
+            canManage={manager}
+            isPengurus={access.isPengurus}
+            reports={event.reports.map((r) => ({
+              id: r.id,
+              type: r.type,
+              createdAt: r.createdAt.toISOString(),
+            }))}
+          />
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  Camera,
   Check,
   Copy,
   FileSpreadsheet,
@@ -20,6 +21,7 @@ import {
   type GeneratedAccount,
   type MemberRowInput,
 } from "@/server/actions/members";
+import { parseRosterPhoto } from "@/server/actions/roster";
 import { POSITION_LABELS, isCorePosition } from "@/lib/positions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +75,9 @@ export function ImportWizard({
   const [results, setResults] = useState<GeneratedAccount[] | null>(null);
   const [pending, startTransition] = useTransition();
   const [parsing, setParsing] = useState(false);
+  const [scanningPhoto, setScanningPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   function addRow(partial?: Partial<DraftRow>) {
     setRows((prev) => [
@@ -169,6 +173,36 @@ export function ImportWizard({
     } finally {
       setParsing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScanningPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await parseRosterPhoto(formData);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const parsed = result.rows ?? [];
+      setRows((prev) => [
+        ...prev,
+        ...parsed.map((r) => ({
+          key: nextKey++,
+          name: r.name,
+          email: r.email,
+          divisionId: matchDivision(r.division),
+          position: matchPosition(r.position),
+        })),
+      ]);
+      toast.success(`AI membaca ${parsed.length} nama dari foto`);
+    } finally {
+      setScanningPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
     }
   }
 
@@ -309,6 +343,30 @@ export function ImportWizard({
               <FileSpreadsheet className="mr-1 h-4 w-4" />
             )}
             Upload spreadsheet
+          </Button>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhoto}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={scanningPhoto}
+          >
+            {scanningPhoto ? (
+              <>
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                Membaca foto…
+              </>
+            ) : (
+              <>
+                <Camera className="mr-1 h-4 w-4" />
+                Foto daftar (AI)
+              </>
+            )}
           </Button>
           <Button variant="outline" onClick={() => addRow()}>
             <Plus className="mr-1 h-4 w-4" />

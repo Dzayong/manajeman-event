@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EventSidebar } from "@/components/event-sidebar";
 import { TaskBoard } from "./task-board";
 import { DocumentsPanel } from "./documents-panel";
 import { MembersActivity } from "./members-activity";
@@ -120,7 +121,9 @@ export default async function DivisionWorkspacePage({
   });
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-6">
+      <EventSidebar eventId={division.event.id} />
+      <div className="min-w-0 flex-1">
       <Link
         href={access.isPengurus ? `/events/${division.event.id}` : "/dashboard"}
         className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"
@@ -209,6 +212,7 @@ export default async function DivisionWorkspacePage({
           <MembersActivity members={members} />
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

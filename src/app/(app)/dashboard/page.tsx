@@ -86,7 +86,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {events.map((event) => (
-              <Link key={event.id} href={`/events/${event.id}`}>
+              <Link key={event.id} href={`/events/${event.id}/workspace`}>
                 <Card className="h-full transition-colors hover:border-slate-400">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">

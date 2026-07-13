@@ -13,6 +13,16 @@ import {
 } from "lucide-react";
 import type { TaskStatus } from "@prisma/client";
 import {
+  DndContext,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import {
   createTask,
   deleteTask,
   toggleChecklistItem,
@@ -81,6 +91,140 @@ function isOverdue(task: TaskItem): boolean {
     task.status !== "DONE" &&
     !!task.deadline &&
     new Date(task.deadline) < new Date()
+  );
+}
+
+function TaskCardBody({
+  task,
+  canEdit,
+  pending,
+  onMove,
+}: {
+  task: TaskItem;
+  canEdit: boolean;
+  pending: boolean;
+  onMove: (task: TaskItem, direction: -1 | 1) => void;
+}) {
+  const checkDone = task.checklist.filter((c) => c.isDone).length;
+  return (
+    <CardContent className="p-3">
+      <p className="text-sm font-medium text-slate-900">{task.title}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        {task.deadline && (
+          <Badge
+            variant={isOverdue(task) ? "destructive" : "secondary"}
+            className="font-normal"
+          >
+            <CalendarDays className="mr-1 h-3 w-3" />
+            {formatDeadline(task.deadline)}
+          </Badge>
+        )}
+        {task.checklist.length > 0 && (
+          <span className="flex items-center gap-1 text-slate-500">
+            <ListChecks className="h-3.5 w-3.5" />
+            {checkDone}/{task.checklist.length}
+          </span>
+        )}
+        {task.pic && (
+          <span
+            title={task.pic.name}
+            className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-[10px] font-medium text-blue-700"
+          >
+            {initials(task.pic.name)}
+          </span>
+        )}
+      </div>
+      {canEdit && (
+        <div
+          className="mt-2 flex justify-between"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            disabled={task.status === "TODO" || pending}
+            onClick={() => onMove(task, -1)}
+            aria-label="Mundurkan status"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            disabled={task.status === "DONE" || pending}
+            onClick={() => onMove(task, 1)}
+            aria-label="Majukan status"
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </CardContent>
+  );
+}
+
+/** Draggable task card. Short clicks still open the detail dialog — dnd-kit
+ * only starts a drag once the pointer moves past the activation distance,
+ * so a tap/click passes through untouched. */
+function DraggableTaskCard({
+  task,
+  canEdit,
+  pending,
+  onOpen,
+  onMove,
+}: {
+  task: TaskItem;
+  canEdit: boolean;
+  pending: boolean;
+  onOpen: (task: TaskItem) => void;
+  onMove: (task: TaskItem, direction: -1 | 1) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: task.id, disabled: !canEdit });
+
+  return (
+    <Card
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        transform: transform ? CSS.Translate.toString(transform) : undefined,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className="touch-none cursor-pointer py-0 transition-colors hover:border-slate-400"
+      onClick={() => onOpen(task)}
+    >
+      <TaskCardBody
+        task={task}
+        canEdit={canEdit}
+        pending={pending}
+        onMove={onMove}
+      />
+    </Card>
+  );
+}
+
+/** Droppable column — highlights while a card is dragged over it. */
+function DroppableColumn({
+  status,
+  children,
+}: {
+  status: TaskStatus;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg p-3 transition-colors ${
+        isOver ? "bg-red-50 ring-2 ring-red-200" : "bg-slate-100/60"
+      }`}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -172,14 +316,31 @@ export function TaskBoard({
     });
   }
 
-  function handleMove(task: TaskItem, direction: -1 | 1) {
-    const order: TaskStatus[] = ["TODO", "IN_PROGRESS", "DONE"];
-    const next = order[order.indexOf(task.status) + direction];
-    if (!next) return;
+  function changeStatus(task: TaskItem, next: TaskStatus) {
+    if (next === task.status) return;
     startTransition(async () => {
       const result = await updateTaskStatus(task.id, next);
       if (result.error) toast.error(result.error);
     });
+  }
+
+  function handleMove(task: TaskItem, direction: -1 | 1) {
+    const order: TaskStatus[] = ["TODO", "IN_PROGRESS", "DONE"];
+    const next = order[order.indexOf(task.status) + direction];
+    if (!next) return;
+    changeStatus(task, next);
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over) return;
+    const task = tasks.find((t) => t.id === active.id);
+    if (!task) return;
+    changeStatus(task, over.id as TaskStatus);
   }
 
   function handleDelete(task: TaskItem) {
@@ -218,95 +379,39 @@ export function TaskBoard({
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {COLUMNS.map((col) => {
-          const colTasks = tasks.filter((t) => t.status === col.status);
-          return (
-            <div key={col.status} className="rounded-lg bg-slate-100/60 p-3">
-              <p className="mb-3 text-sm font-medium text-slate-600">
-                {col.label} · {colTasks.length}
-              </p>
-              <div className="space-y-2">
-                {colTasks.length === 0 && (
-                  <p className="py-6 text-center text-xs text-slate-400">
-                    Tidak ada tugas
-                  </p>
-                )}
-                {colTasks.map((task) => {
-                  const checkDone = task.checklist.filter(
-                    (c) => c.isDone,
-                  ).length;
-                  return (
-                    <Card
-                      key={task.id}
-                      className="cursor-pointer py-0 transition-colors hover:border-slate-400"
-                      onClick={() => openEdit(task)}
-                    >
-                      <CardContent className="p-3">
-                        <p className="text-sm font-medium text-slate-900">
-                          {task.title}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                          {task.deadline && (
-                            <Badge
-                              variant={isOverdue(task) ? "destructive" : "secondary"}
-                              className="font-normal"
-                            >
-                              <CalendarDays className="mr-1 h-3 w-3" />
-                              {formatDeadline(task.deadline)}
-                            </Badge>
-                          )}
-                          {task.checklist.length > 0 && (
-                            <span className="flex items-center gap-1 text-slate-500">
-                              <ListChecks className="h-3.5 w-3.5" />
-                              {checkDone}/{task.checklist.length}
-                            </span>
-                          )}
-                          {task.pic && (
-                            <span
-                              title={task.pic.name}
-                              className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-[10px] font-medium text-blue-700"
-                            >
-                              {initials(task.pic.name)}
-                            </span>
-                          )}
-                        </div>
-                        {canEdit && (
-                          <div
-                            className="mt-2 flex justify-between"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              disabled={task.status === "TODO" || pending}
-                              onClick={() => handleMove(task, -1)}
-                              aria-label="Mundurkan status"
-                            >
-                              <ArrowLeft className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              disabled={task.status === "DONE" || pending}
-                              onClick={() => handleMove(task, 1)}
-                              aria-label="Majukan status"
-                            >
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <div className="grid gap-4 md:grid-cols-3">
+          {COLUMNS.map((col) => {
+            const colTasks = tasks.filter((t) => t.status === col.status);
+            return (
+              <div key={col.status}>
+                <p className="mb-3 text-sm font-medium text-slate-600">
+                  {col.label} · {colTasks.length}
+                </p>
+                <DroppableColumn status={col.status}>
+                  <div className="space-y-2">
+                    {colTasks.length === 0 && (
+                      <p className="py-6 text-center text-xs text-slate-400">
+                        Tidak ada tugas
+                      </p>
+                    )}
+                    {colTasks.map((task) => (
+                      <DraggableTaskCard
+                        key={task.id}
+                        task={task}
+                        canEdit={canEdit}
+                        pending={pending}
+                        onOpen={openEdit}
+                        onMove={handleMove}
+                      />
+                    ))}
+                  </div>
+                </DroppableColumn>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </DndContext>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>

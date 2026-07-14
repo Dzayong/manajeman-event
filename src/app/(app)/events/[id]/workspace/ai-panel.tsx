@@ -77,7 +77,6 @@ export function AiPanel({
           <>
             <Button
               className="w-full justify-start"
-              variant="outline"
               disabled={busy !== null}
               onClick={() => handleGenerate("PROGRESS_SUMMARY")}
             >

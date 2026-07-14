@@ -29,6 +29,8 @@ import {
   updateTask,
   updateTaskStatus,
 } from "@/server/actions/tasks";
+import { avatarColor, initials } from "@/lib/avatar-color";
+import { getUrgency, URGENCY_BADGE_CLASS } from "@/lib/urgency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -71,27 +73,11 @@ const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: "DONE", label: "Selesai" },
 ];
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 function formatDeadline(iso: string): string {
   return new Date(iso).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "short",
   });
-}
-
-function isOverdue(task: TaskItem): boolean {
-  return (
-    task.status !== "DONE" &&
-    !!task.deadline &&
-    new Date(task.deadline) < new Date()
-  );
 }
 
 function TaskCardBody({
@@ -106,33 +92,48 @@ function TaskCardBody({
   onMove: (task: TaskItem, direction: -1 | 1) => void;
 }) {
   const checkDone = task.checklist.filter((c) => c.isDone).length;
+  const urgency = getUrgency(task.deadline, task.status === "DONE");
+  const picColor = task.pic ? avatarColor(task.pic.name) : null;
+
   return (
     <CardContent className="p-3">
       <p className="text-sm font-medium text-slate-900">{task.title}</p>
+
+      {task.checklist.length > 0 && (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-1.5 rounded-full bg-emerald-500 transition-all"
+            style={{
+              width: `${Math.round((checkDone / task.checklist.length) * 100)}%`,
+            }}
+          />
+        </div>
+      )}
+
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-        {task.deadline && (
-          <Badge
-            variant={isOverdue(task) ? "destructive" : "secondary"}
-            className="font-normal"
-          >
-            <CalendarDays className="mr-1 h-3 w-3" />
-            {formatDeadline(task.deadline)}
-          </Badge>
-        )}
+        <Badge
+          variant="outline"
+          className={`border-transparent font-normal ${URGENCY_BADGE_CLASS[urgency]}`}
+        >
+          <CalendarDays className="mr-1 h-3 w-3" />
+          {task.deadline ? formatDeadline(task.deadline) : "Belum ada tenggat"}
+        </Badge>
         {task.checklist.length > 0 && (
           <span className="flex items-center gap-1 text-slate-500">
             <ListChecks className="h-3.5 w-3.5" />
             {checkDone}/{task.checklist.length}
           </span>
         )}
-        {task.pic && (
-          <span
-            title={task.pic.name}
-            className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-[10px] font-medium text-blue-700"
-          >
-            {initials(task.pic.name)}
-          </span>
-        )}
+        <span
+          title={task.pic ? task.pic.name : "Belum ada PIC"}
+          className={`ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
+            picColor
+              ? `${picColor.bg} ${picColor.text}`
+              : "border border-dashed border-slate-300 text-slate-400"
+          }`}
+        >
+          {task.pic ? initials(task.pic.name) : "?"}
+        </span>
       </div>
       {canEdit && (
         <div

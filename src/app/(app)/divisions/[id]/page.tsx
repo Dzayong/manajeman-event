@@ -9,9 +9,9 @@ import {
   canEditDivision,
 } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventSidebar } from "@/components/event-sidebar";
+import { DonutChart } from "@/components/donut-chart";
 import { TaskBoard } from "./task-board";
 import { DocumentsPanel } from "./documents-panel";
 import { MembersActivity } from "./members-activity";
@@ -56,10 +56,10 @@ export default async function DivisionWorkspacePage({
   const editable = canEditDivision(access, divisionId);
 
   const doneCount = division.tasks.filter((t) => t.status === "DONE").length;
-  const progress =
-    division.tasks.length === 0
-      ? 0
-      : Math.round((doneCount / division.tasks.length) * 100);
+  const inProgressCount = division.tasks.filter(
+    (t) => t.status === "IN_PROGRESS",
+  ).length;
+  const todoCount = division.tasks.filter((t) => t.status === "TODO").length;
 
   const memberIds = division.memberships.map((m) => m.user.id);
 
@@ -144,15 +144,24 @@ export default async function DivisionWorkspacePage({
             </Badge>
           )}
         </div>
-        <div className="w-full max-w-56">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-500">Progress</span>
-            <span className="font-medium text-slate-900">
-              {progress}% · {doneCount}/{division.tasks.length} tugas
-            </span>
-          </div>
-          <Progress value={progress} className="mt-1 h-2" />
-        </div>
+        {division.tasks.length > 0 && (
+          <DonutChart
+            size={72}
+            segments={[
+              { label: "To-do", value: todoCount, colorClass: "text-slate-300" },
+              {
+                label: "Dikerjakan",
+                value: inProgressCount,
+                colorClass: "text-amber-400",
+              },
+              {
+                label: "Selesai",
+                value: doneCount,
+                colorClass: "text-emerald-500",
+              },
+            ]}
+          />
+        )}
       </div>
 
       <Tabs defaultValue="tasks" className="mt-6">

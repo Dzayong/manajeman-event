@@ -1,5 +1,6 @@
 import type { Position } from "@prisma/client";
 import { POSITION_LABELS } from "@/lib/positions";
+import { avatarColor, initials } from "@/lib/avatar-color";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -95,10 +96,21 @@ export function MembersActivity({ members }: { members: MemberStats[] }) {
                     />
                   </TableCell>
                   <TableCell>
-                    <span className="font-medium text-slate-900">{m.name}</span>
-                    <span className="block text-xs text-slate-500">
-                      @{m.username}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarColor(m.name).bg} ${avatarColor(m.name).text}`}
+                      >
+                        {initials(m.name)}
+                      </span>
+                      <div>
+                        <span className="font-medium text-slate-900">
+                          {m.name}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          @{m.username}
+                        </span>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">

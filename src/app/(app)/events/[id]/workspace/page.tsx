@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, Eye, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, Eye, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { getEventAccess, canOperateEvent } from "@/lib/permissions";
 import { POSITION_LABELS } from "@/lib/positions";
+import { avatarColor, initials } from "@/lib/avatar-color";
+import { computeQuickVerdict, VERDICT_STYLE } from "@/lib/event-verdict";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { DonutChart } from "@/components/donut-chart";
+import { StatusBar } from "@/components/status-bar";
 import { MilestonesPanel } from "./milestones-panel";
 import { AttendancePanel } from "./attendance-panel";
 import { AiPanel } from "./ai-panel";
@@ -34,7 +37,14 @@ export default async function EventWorkspacePage({
     include: {
       divisions: {
         include: {
-          tasks: { select: { status: true } },
+          tasks: {
+            select: {
+              status: true,
+              title: true,
+              deadline: true,
+              pic: { select: { name: true } },
+            },
+          },
           _count: { select: { memberships: true } },
         },
         orderBy: { id: "asc" },
@@ -61,16 +71,32 @@ export default async function EventWorkspacePage({
   const operator = canOperateEvent(access);
   const manager = access.canManageEvent;
 
-  const totalTasks = event.divisions.reduce(
-    (sum, d) => sum + d.tasks.length,
-    0,
+  const allTasks = event.divisions.flatMap((d) =>
+    d.tasks.map((t) => ({ ...t, divisionName: d.name })),
   );
-  const doneTasks = event.divisions.reduce(
-    (sum, d) => sum + d.tasks.filter((t) => t.status === "DONE").length,
-    0,
-  );
-  const overall =
-    totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+  const doneTasks = allTasks.filter((t) => t.status === "DONE").length;
+  const inProgressTasks = allTasks.filter(
+    (t) => t.status === "IN_PROGRESS",
+  ).length;
+  const todoTasks = allTasks.filter((t) => t.status === "TODO").length;
+
+  const now = new Date();
+  const overdueTasks = allTasks
+    .filter((t) => t.status !== "DONE" && t.deadline && t.deadline < now)
+    .sort((a, b) => a.deadline!.getTime() - b.deadline!.getTime());
+
+  const stalledDivisionNames = event.divisions
+    .filter(
+      (d) =>
+        d.tasks.length > 0 &&
+        d.tasks.every((t) => t.status === "TODO"),
+    )
+    .map((d) => d.name);
+
+  const verdict = computeQuickVerdict({
+    overdueCount: overdueTasks.length,
+    stalledDivisionNames,
+  });
 
   return (
     <div>
@@ -96,14 +122,31 @@ export default async function EventWorkspacePage({
               Keuangan
             </Link>
           </Button>
-          <div className="w-44">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500">Progress</span>
-              <span className="font-medium text-slate-900">{overall}%</span>
-            </div>
-            <Progress value={overall} className="mt-1 h-2" />
-          </div>
+          {allTasks.length > 0 && (
+            <DonutChart
+              size={64}
+              segments={[
+                { label: "To-do", value: todoTasks, colorClass: "text-slate-300" },
+                {
+                  label: "Dikerjakan",
+                  value: inProgressTasks,
+                  colorClass: "text-amber-400",
+                },
+                {
+                  label: "Selesai",
+                  value: doneTasks,
+                  colorClass: "text-emerald-500",
+                },
+              ]}
+            />
+          )}
         </div>
+      </div>
+
+      <div
+        className={`mt-4 rounded-lg border px-4 py-2.5 text-sm ${VERDICT_STYLE[verdict.level]}`}
+      >
+        {verdict.text}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
@@ -133,7 +176,10 @@ export default async function EventWorkspacePage({
               {event.divisions.map((d) => {
                 const total = d.tasks.length;
                 const done = d.tasks.filter((t) => t.status === "DONE").length;
-                const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+                const inProgress = d.tasks.filter(
+                  (t) => t.status === "IN_PROGRESS",
+                ).length;
+                const todo = d.tasks.filter((t) => t.status === "TODO").length;
                 return (
                   <Link
                     key={d.id}
@@ -147,7 +193,7 @@ export default async function EventWorkspacePage({
                         <ArrowRight className="h-4 w-4" />
                       </span>
                     </div>
-                    <Progress value={pct} className="mt-2 h-2" />
+                    <StatusBar todo={todo} inProgress={inProgress} done={done} />
                   </Link>
                 );
               })}
@@ -170,6 +216,52 @@ export default async function EventWorkspacePage({
         </div>
 
         <div className="space-y-6">
+          {overdueTasks.length > 0 && (
+            <Card className="border-red-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base text-red-700">
+                  <AlertTriangle className="h-4 w-4" />
+                  Perlu perhatian
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {overdueTasks.slice(0, 3).map((t, i) => {
+                  const picName = t.pic?.name ?? null;
+                  const color = picName ? avatarColor(picName) : null;
+                  const daysLate = Math.floor(
+                    (now.getTime() - t.deadline!.getTime()) / 86_400_000,
+                  );
+                  return (
+                    <div key={i} className="flex items-start gap-2">
+                      <span
+                        title={picName ?? "Belum ada PIC"}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
+                          color
+                            ? `${color.bg} ${color.text}`
+                            : "border border-dashed border-slate-300 text-slate-400"
+                        }`}
+                      >
+                        {picName ? initials(picName) : "?"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {t.title}
+                        </p>
+                        <p className="text-xs text-red-600">
+                          {t.divisionName} · telat {daysLate} hari
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {overdueTasks.length > 3 && (
+                  <p className="text-xs text-slate-500">
+                    +{overdueTasks.length - 3} tugas telat lainnya
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
           <MilestonesPanel
             eventId={event.id}
             canManage={manager}

@@ -8,7 +8,9 @@ import {
   CalendarDays,
   ListChecks,
   Loader2,
+  MessageSquare,
   Plus,
+  Send,
   Trash2,
 } from "lucide-react";
 import type { TaskStatus } from "@prisma/client";
@@ -24,6 +26,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   createTask,
+  addTaskComment,
   deleteTask,
   toggleChecklistItem,
   updateTask,
@@ -57,6 +60,13 @@ type Member = { id: number; name: string };
 
 type ChecklistItem = { id: number; label: string; isDone: boolean };
 
+type TaskComment = {
+  id: number;
+  body: string;
+  createdAt: string;
+  userName: string;
+};
+
 type TaskItem = {
   id: number;
   title: string;
@@ -65,6 +75,7 @@ type TaskItem = {
   deadline: string | null;
   pic: Member | null;
   checklist: ChecklistItem[];
+  comments: TaskComment[];
 };
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
@@ -234,15 +245,18 @@ export function TaskBoard({
   tasks,
   members,
   canEdit,
+  canComment,
 }: {
   divisionId: number;
   tasks: TaskItem[];
   members: Member[];
   canEdit: boolean;
+  canComment: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [addOpen, setAddOpen] = useState(false);
   const [detail, setDetail] = useState<TaskItem | null>(null);
+  const [commentText, setCommentText] = useState("");
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -273,6 +287,7 @@ export function TaskBoard({
       deadline: task.deadline ? task.deadline.slice(0, 10) : "",
       checklistText: "",
     });
+    setCommentText("");
     setDetail(task);
   }
 
@@ -360,6 +375,19 @@ export function TaskBoard({
     startTransition(async () => {
       const result = await toggleChecklistItem(item.id, checked);
       if (result.error) toast.error(result.error);
+    });
+  }
+
+  function handleAddComment() {
+    if (!detailTask || !commentText.trim()) return;
+    startTransition(async () => {
+      const result = await addTaskComment(detailTask.id, { body: commentText });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Komentar ditambahkan");
+      setCommentText("");
     });
   }
 
@@ -485,6 +513,66 @@ export function TaskBoard({
                   </div>
                 </div>
               )}
+
+              <div className="rounded-lg border bg-slate-50/70 p-3">
+                <p className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <MessageSquare className="h-4 w-4" />
+                  Komentar ({detailTask.comments.length})
+                </p>
+                {detailTask.comments.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    Belum ada komentar untuk tugas ini.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {detailTask.comments.map((comment) => (
+                      <div key={comment.id} className="rounded-md bg-white p-2">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-slate-700">
+                            {comment.userName}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            {new Date(comment.createdAt).toLocaleTimeString(
+                              "id-ID",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
+                          </p>
+                        </div>
+                        <p className="whitespace-pre-line text-sm text-slate-600">
+                          {comment.body}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {canComment && (
+                  <div className="mt-3 flex gap-2">
+                    <Textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Tulis komentar..."
+                      aria-label="Komentar tugas"
+                      className="min-h-16"
+                    />
+                    <Button
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      onClick={handleAddComment}
+                      disabled={pending || !commentText.trim()}
+                      aria-label="Kirim komentar"
+                    >
+                      {pending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
 
               {canEdit && (
                 <DialogFooter className="flex items-center sm:justify-between">

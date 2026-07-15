@@ -100,13 +100,14 @@ export function SessionScreen({
 
   useEffect(() => {
     if (status !== "OPEN" || mode !== "QR_SELF") return;
-    refreshToken();
+    const initialRefresh = setTimeout(refreshToken, 0);
     const poll = setInterval(refreshToken, REFRESH_MS);
     timerRef.current = setInterval(
       () => setSecondsLeft((s) => Math.max(0, s - 1)),
       1000,
     );
     return () => {
+      clearTimeout(initialRefresh);
       clearInterval(poll);
       if (timerRef.current) clearInterval(timerRef.current);
     };

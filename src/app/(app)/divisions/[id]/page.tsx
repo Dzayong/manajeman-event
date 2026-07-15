@@ -7,11 +7,13 @@ import {
   getEventAccess,
   canViewDivision,
   canEditDivision,
+  canOperateEvent,
 } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventSidebar } from "@/components/event-sidebar";
 import { DonutChart } from "@/components/donut-chart";
+import { AnnouncementsPanel } from "@/components/announcements-panel";
 import { TaskBoard } from "./task-board";
 import { DocumentsPanel } from "./documents-panel";
 import { MembersActivity } from "./members-activity";
@@ -31,11 +33,36 @@ export default async function DivisionWorkspacePage({
   const division = await db.division.findUnique({
     where: { id: divisionId },
     include: {
-      event: { select: { id: true, name: true } },
+      event: {
+        select: {
+          id: true,
+          name: true,
+          announcements: {
+            where: {
+              OR: [
+                { targets: { none: {} } },
+                { targets: { some: { divisionId } } },
+              ],
+            },
+            include: {
+              createdBy: { select: { name: true } },
+              targets: {
+                include: { division: { select: { id: true, name: true } } },
+                orderBy: { divisionId: "asc" },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
+        },
+      },
       tasks: {
         include: {
           pic: { select: { id: true, name: true } },
           checklistItems: { orderBy: { sortOrder: "asc" } },
+          comments: {
+            include: { user: { select: { name: true } } },
+            orderBy: { createdAt: "asc" },
+          },
         },
         orderBy: [{ deadline: "asc" }, { id: "asc" }],
       },
@@ -54,6 +81,8 @@ export default async function DivisionWorkspacePage({
   const access = await getEventAccess(session, division.event.id);
   if (!access || !canViewDivision(access, divisionId)) redirect("/dashboard");
   const editable = canEditDivision(access, divisionId);
+  const operator = canOperateEvent(access);
+  const canComment = !access.readOnly;
 
   const doneCount = division.tasks.filter((t) => t.status === "DONE").length;
   const inProgressCount = division.tasks.filter(
@@ -164,6 +193,26 @@ export default async function DivisionWorkspacePage({
         )}
       </div>
 
+      <div className="mt-6">
+        <AnnouncementsPanel
+          eventId={division.event.id}
+          canOperate={operator}
+          divisions={[]}
+          announcements={division.event.announcements.map((a) => ({
+            id: a.id,
+            title: a.title,
+            body: a.body,
+            deadline: a.deadline ? a.deadline.toISOString() : null,
+            createdAt: a.createdAt.toISOString(),
+            createdBy: a.createdBy?.name ?? null,
+            targetDivisions: a.targets.map((target) => ({
+              id: target.division.id,
+              name: target.division.name,
+            })),
+          }))}
+        />
+      </div>
+
       <Tabs defaultValue="tasks" className="mt-6">
         <TabsList>
           <TabsTrigger value="tasks">
@@ -181,6 +230,7 @@ export default async function DivisionWorkspacePage({
           <TaskBoard
             divisionId={division.id}
             canEdit={editable}
+            canComment={canComment}
             members={division.memberships.map((m) => ({
               id: m.user.id,
               name: m.user.name,
@@ -196,6 +246,12 @@ export default async function DivisionWorkspacePage({
                 id: c.id,
                 label: c.label,
                 isDone: c.isDone,
+              })),
+              comments: t.comments.map((comment) => ({
+                id: comment.id,
+                body: comment.body,
+                createdAt: comment.createdAt.toISOString(),
+                userName: comment.user.name,
               })),
             }))}
           />

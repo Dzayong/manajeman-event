@@ -6,7 +6,11 @@ import type { TaskStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { logActivity } from "@/lib/activity";
-import { getEventAccess, canEditDivision } from "@/lib/permissions";
+import {
+  getEventAccess,
+  canEditDivision,
+  canViewDivision,
+} from "@/lib/permissions";
 
 const taskInputSchema = z.object({
   title: z.string().trim().min(1, "Judul tugas wajib diisi").max(200),
@@ -28,6 +32,22 @@ async function authorizeDivision(divisionId: number) {
   const access = await getEventAccess(session, division.eventId);
   if (!access || !canEditDivision(access, divisionId)) {
     return { error: "Kamu tidak punya akses mengubah divisi ini." as const };
+  }
+  return { session, division };
+}
+
+async function authorizeViewDivision(divisionId: number) {
+  const session = await requireSession();
+  const division = await db.division.findUnique({
+    where: { id: divisionId },
+    select: { id: true, eventId: true, name: true },
+  });
+  if (!division) return { error: "Divisi tidak ditemukan." as const };
+  const access = await getEventAccess(session, division.eventId);
+  if (!access || !canViewDivision(access, divisionId) || access.readOnly) {
+    return {
+      error: "Kamu tidak punya akses berkomentar di divisi ini." as const,
+    };
   }
   return { session, division };
 }
@@ -189,5 +209,47 @@ export async function toggleChecklistItem(
     detail: `${item.label}: ${isDone ? "selesai" : "dibuka lagi"}`,
   });
   revalidatePath(`/divisions/${item.task.divisionId}`);
+  return {};
+}
+
+const commentSchema = z.object({
+  body: z.string().trim().min(1, "Komentar wajib diisi").max(2000),
+});
+
+export async function addTaskComment(
+  taskId: number,
+  input: z.infer<typeof commentSchema>,
+): Promise<{ error?: string }> {
+  const task = await db.task.findUnique({
+    where: { id: taskId },
+    select: { divisionId: true, title: true },
+  });
+  if (!task) return { error: "Tugas tidak ditemukan." };
+
+  const auth = await authorizeViewDivision(task.divisionId);
+  if ("error" in auth) return { error: auth.error };
+
+  const parsed = commentSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  await db.taskComment.create({
+    data: {
+      taskId,
+      userId: auth.session.userId,
+      body: parsed.data.body,
+    },
+  });
+
+  logActivity({
+    userId: auth.session.userId,
+    eventId: auth.division.eventId,
+    divisionId: task.divisionId,
+    action: "task.comment",
+    targetType: "task",
+    targetId: taskId,
+    detail: task.title,
+  });
+  revalidatePath(`/divisions/${task.divisionId}`);
+  revalidatePath(`/events/${auth.division.eventId}/workspace`);
   return {};
 }

@@ -15,14 +15,14 @@ enum Role {
 }
 
 model User {
-  id                Int       @id @default(autoincrement())
-  name              String    @db.VarChar(120)
-  username          String    @unique @db.VarChar(60)
-  email             String?   @unique @db.VarChar(160)
-  passwordHash      String    @db.VarChar(255)
-  role              Role      @default(PANITIA)
-  mustResetPassword Boolean   @default(true)
-  createdAt         DateTime  @default(now())
+  id                Int      @id @default(autoincrement())
+  name              String   @db.VarChar(120)
+  username          String   @unique @db.VarChar(60)
+  email             String?  @unique @db.VarChar(160)
+  passwordHash      String   @db.VarChar(255)
+  role              Role     @default(PANITIA)
+  mustResetPassword Boolean  @default(true)
+  createdAt         DateTime @default(now())
 
   memberships      Membership[]
   createdEvents    Event[]              @relation("EventCreator")
@@ -36,6 +36,8 @@ model User {
   activityLogs     ActivityLog[]
   ruleAcks         RuleAcknowledgment[]
   reports          Report[]
+  announcements    Announcement[]
+  taskComments     TaskComment[]
 }
 
 // ---------- Events & structure ----------
@@ -70,6 +72,7 @@ model Event {
   activityLogs       ActivityLog[]
   reports            Report[]
   documents          Document[]
+  announcements      Announcement[]
 }
 
 model Division {
@@ -78,14 +81,44 @@ model Division {
   name        String  @db.VarChar(120)
   description String? @db.Text
 
-  event          Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  memberships    Membership[]
-  tasks          Task[]
-  documents      Document[]
-  rabItems       RabItem[]
-  financeRecords FinanceRecord[]
+  event               Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  memberships         Membership[]
+  tasks               Task[]
+  documents           Document[]
+  rabItems            RabItem[]
+  financeRecords      FinanceRecord[]
+  announcementTargets AnnouncementTarget[]
 
   @@index([eventId])
+}
+
+model Announcement {
+  id          Int       @id @default(autoincrement())
+  eventId     Int
+  title       String    @db.VarChar(200)
+  body        String    @db.Text
+  deadline    DateTime? @db.Date
+  createdById Int?
+  createdAt   DateTime  @default(now())
+
+  event     Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdBy User?                @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  targets   AnnouncementTarget[]
+
+  @@index([eventId, createdAt])
+  @@index([deadline])
+}
+
+model AnnouncementTarget {
+  id             Int @id @default(autoincrement())
+  announcementId Int
+  divisionId     Int
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  division     Division     @relation(fields: [divisionId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, divisionId])
+  @@index([divisionId])
 }
 
 // Event-level position. Core roles (KETUA_PANITIA/SEKRETARIS/BENDAHARA/SC)
@@ -138,9 +171,24 @@ model Task {
   pic            User?               @relation("TaskPic", fields: [picUserId], references: [id], onDelete: SetNull)
   createdBy      User?               @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
   checklistItems TaskChecklistItem[]
+  comments       TaskComment[]
 
   @@index([divisionId, status])
   @@index([deadline])
+}
+
+model TaskComment {
+  id        Int      @id @default(autoincrement())
+  taskId    Int
+  userId    Int
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@index([userId])
 }
 
 model TaskChecklistItem {
@@ -247,12 +295,12 @@ enum AttendanceMethod {
 }
 
 model Attendance {
-  id           Int              @id @default(autoincrement())
-  sessionId    Int
-  userId       Int
-  method       AttendanceMethod @default(QR)
-  markedById   Int? // who scanned/marked (SCAN & MANUAL)
-  checkedInAt  DateTime         @default(now())
+  id          Int              @id @default(autoincrement())
+  sessionId   Int
+  userId      Int
+  method      AttendanceMethod @default(QR)
+  markedById  Int? // who scanned/marked (SCAN & MANUAL)
+  checkedInAt DateTime         @default(now())
 
   session  AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   user     User              @relation("AttendanceUser", fields: [userId], references: [id], onDelete: Cascade)

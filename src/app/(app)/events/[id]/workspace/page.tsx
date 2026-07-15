@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DonutChart } from "@/components/donut-chart";
 import { StatusBar } from "@/components/status-bar";
+import { AnnouncementsPanel } from "@/components/announcements-panel";
+import { ActivityFeedPanel } from "@/components/activity-feed-panel";
 import { MilestonesPanel } from "./milestones-panel";
 import { AttendancePanel } from "./attendance-panel";
 import { AiPanel } from "./ai-panel";
@@ -31,6 +33,8 @@ export default async function EventWorkspacePage({
 
   const access = await getEventAccess(session, eventId);
   if (!access) redirect("/dashboard");
+  const now = new Date();
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const event = await db.event.findUnique({
     where: { id: eventId },
@@ -64,6 +68,22 @@ export default async function EventWorkspacePage({
         include: { uploadedBy: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
       },
+      announcements: {
+        include: {
+          createdBy: { select: { name: true } },
+          targets: {
+            include: { division: { select: { id: true, name: true } } },
+            orderBy: { divisionId: "asc" },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      activityLogs: {
+        where: { createdAt: { gte: oneDayAgo } },
+        include: { user: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      },
     },
   });
   if (!event) notFound();
@@ -80,7 +100,6 @@ export default async function EventWorkspacePage({
   ).length;
   const todoTasks = allTasks.filter((t) => t.status === "TODO").length;
 
-  const now = new Date();
   const overdueTasks = allTasks
     .filter((t) => t.status !== "DONE" && t.deadline && t.deadline < now)
     .sort((a, b) => a.deadline!.getTime() - b.deadline!.getTime());
@@ -97,6 +116,7 @@ export default async function EventWorkspacePage({
     overdueCount: overdueTasks.length,
     stalledDivisionNames,
   });
+  const divisionNames = new Map(event.divisions.map((d) => [d.id, d.name]));
 
   return (
     <div>
@@ -151,6 +171,28 @@ export default async function EventWorkspacePage({
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
+          <AnnouncementsPanel
+            eventId={event.id}
+            canOperate={operator}
+            showForm
+            divisions={event.divisions.map((d) => ({
+              id: d.id,
+              name: d.name,
+            }))}
+            announcements={event.announcements.map((a) => ({
+              id: a.id,
+              title: a.title,
+              body: a.body,
+              deadline: a.deadline ? a.deadline.toISOString() : null,
+              createdAt: a.createdAt.toISOString(),
+              createdBy: a.createdBy?.name ?? null,
+              targetDivisions: a.targets.map((target) => ({
+                id: target.division.id,
+                name: target.division.name,
+              })),
+            }))}
+          />
+
           <EventDocumentsPanel
             eventId={event.id}
             canManage={manager}
@@ -216,6 +258,19 @@ export default async function EventWorkspacePage({
         </div>
 
         <div className="space-y-6">
+          <ActivityFeedPanel
+            activities={event.activityLogs.map((activity) => ({
+              id: activity.id,
+              action: activity.action,
+              detail: activity.detail,
+              createdAt: activity.createdAt.toISOString(),
+              userName: activity.user.name,
+              divisionName: activity.divisionId
+                ? (divisionNames.get(activity.divisionId) ?? null)
+                : null,
+            }))}
+          />
+
           {overdueTasks.length > 0 && (
             <Card className="border-red-200">
               <CardHeader>

@@ -162,9 +162,9 @@ export function LetterClient({
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5 items-start no-print-layout">
+      <div className="grid gap-6 lg:grid-cols-7 items-start no-print-layout">
         {/* Customize Fields (No Print) */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 lg:sticky lg:top-20">
           <CardHeader>
             <CardTitle className="text-base font-bold">Kustomisasi Surat</CardTitle>
             <CardDescription>Pilih tipe surat dan sesuaikan informasi isian surat.</CardDescription>
@@ -272,7 +272,7 @@ export function LetterClient({
         </Card>
 
         {/* Preview Panel (No Print) */}
-        <Card className="lg:col-span-3 overflow-hidden shadow-sm">
+        <Card className="lg:col-span-5 overflow-hidden shadow-sm">
           <CardHeader className="bg-slate-50 border-b py-3 flex flex-row items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Live Preview</span>
             <span className="text-xs text-slate-500">Format Kertas A4</span>

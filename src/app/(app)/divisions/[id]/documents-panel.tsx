@@ -59,6 +59,7 @@ export function DocumentsPanel({
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkCategory, setLinkCategory] = useState("Lainnya");
+  const [fileCategory, setFileCategory] = useState("Lainnya");
   const [previewDoc, setPreviewDoc] = useState<PreviewableDoc>(null);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
@@ -104,6 +105,7 @@ export function DocumentsPanel({
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("category", fileCategory);
       const result = await uploadFileDocument(divisionId, formData);
       if (result.error) {
         toast.error(result.error);
@@ -178,6 +180,18 @@ export function DocumentsPanel({
                 className="hidden"
                 onChange={handleFile}
               />
+              <Select value={fileCategory} onValueChange={setFileCategory}>
+                <SelectTrigger className="w-32" aria-label="Kategori file">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DOCUMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 variant="outline"
                 size="sm"

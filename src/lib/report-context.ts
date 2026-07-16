@@ -77,6 +77,35 @@ export async function buildEventContext(
     }
   }
 
+  // Correspondence & other admin paperwork (e.g. Humas' surat-menyurat) is
+  // just the existing Documents feature filed under category "Surat" --
+  // surfaced here so a report can honestly say how many were recorded,
+  // instead of the AI having no way to know and inventing an answer.
+  const documents = await db.document.findMany({
+    where: { OR: [{ eventId }, { division: { eventId } }] },
+    select: {
+      title: true,
+      category: true,
+      createdAt: true,
+      division: { select: { name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  const letters = documents.filter((d) => d.category === "Surat");
+  if (letters.length > 0) {
+    lines.push("", "SURAT-MENYURAT TERCATAT:");
+    for (const l of letters) {
+      lines.push(
+        `- ${l.title} (${l.division?.name ?? "Umum"}, ${l.createdAt.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })})`,
+      );
+    }
+  } else {
+    lines.push(
+      "",
+      "SURAT-MENYURAT TERCATAT: belum ada dokumen berkategori \"Surat\" yang diupload divisi mana pun.",
+    );
+  }
+
   if (options.includeFinance) {
     // Full roster -- an LPJ needs a "Susunan Kepanitiaan" section with names.
     lines.push("", "SUSUNAN KEPANITIAAN:");
@@ -96,23 +125,42 @@ export async function buildEventContext(
     }
 
     // Itemized RAB -- an LPJ needs anggaran vs realisasi per pos, not just totals.
-    const [rabItems, realizedByRab] = await Promise.all([
+    const [rabItems, confirmedRecords] = await Promise.all([
       db.rabItem.findMany({
         where: { eventId },
         include: { division: { select: { name: true } } },
         orderBy: { id: "asc" },
       }),
-      db.financeRecord.groupBy({
-        by: ["rabItemId"],
+      db.financeRecord.findMany({
         where: { eventId, status: "CONFIRMED" },
-        _sum: { totalAmount: true },
+        include: { items: true },
+        orderBy: { id: "asc" },
       }),
     ]);
-    const realizedMap = new Map(
-      realizedByRab.map((r) => [r.rabItemId, Number(r._sum.totalAmount ?? 0)]),
-    );
 
-    lines.push("", "REALISASI ANGGARAN (per pos):");
+    const recordsByRab = new Map<number | null, typeof confirmedRecords>();
+    for (const rec of confirmedRecords) {
+      const key = rec.rabItemId;
+      const list = recordsByRab.get(key) ?? [];
+      list.push(rec);
+      recordsByRab.set(key, list);
+    }
+
+    function pushRecordItems(records: typeof confirmedRecords) {
+      for (const rec of records) {
+        if (rec.items.length === 0) {
+          if (rec.note) lines.push(`    - ${rec.note}: Rp${Number(rec.totalAmount).toLocaleString("id-ID")}`);
+          continue;
+        }
+        for (const item of rec.items) {
+          lines.push(
+            `    - ${item.itemName}: ${item.quantity} x Rp${Number(item.unitPrice).toLocaleString("id-ID")} = Rp${Number(item.subtotal).toLocaleString("id-ID")}`,
+          );
+        }
+      }
+    }
+
+    lines.push("", "REALISASI ANGGARAN (per pos, HANYA struk yang sudah dikonfirmasi):");
     if (rabItems.length === 0) {
       lines.push("- Belum ada pos RAB yang diinput.");
     }
@@ -120,16 +168,41 @@ export async function buildEventContext(
     let totalRealized = 0;
     for (const item of rabItems) {
       const subtotal = Number(item.subtotal);
-      const realized = realizedMap.get(item.id) ?? 0;
+      const records = recordsByRab.get(item.id) ?? [];
+      const realized = records.reduce((s, r) => s + Number(r.totalAmount), 0);
       totalBudget += subtotal;
       totalRealized += realized;
       lines.push(
         `- ${item.itemName} (${item.division?.name ?? "Umum"}): anggaran Rp${subtotal.toLocaleString("id-ID")}, realisasi Rp${realized.toLocaleString("id-ID")}, selisih Rp${(subtotal - realized).toLocaleString("id-ID")}`,
       );
+      pushRecordItems(records);
+      recordsByRab.delete(item.id);
     }
+
+    // Confirmed spending not linked to any RAB pos -- still real money spent,
+    // must not be silently dropped from the total (was a real undercount bug).
+    const unlinkedRecords = recordsByRab.get(null) ?? [];
+    if (unlinkedRecords.length > 0) {
+      const unlinkedTotal = unlinkedRecords.reduce((s, r) => s + Number(r.totalAmount), 0);
+      totalRealized += unlinkedTotal;
+      lines.push(
+        `- Pengeluaran tanpa pos RAB: realisasi Rp${unlinkedTotal.toLocaleString("id-ID")}`,
+      );
+      pushRecordItems(unlinkedRecords);
+    }
+
     lines.push(
       `- TOTAL: anggaran Rp${totalBudget.toLocaleString("id-ID")}, realisasi Rp${totalRealized.toLocaleString("id-ID")}, selisih Rp${(totalBudget - totalRealized).toLocaleString("id-ID")}`,
     );
+
+    const draftCount = await db.financeRecord.count({
+      where: { eventId, status: "DRAFT" },
+    });
+    if (draftCount > 0) {
+      lines.push(
+        `- Catatan: ada ${draftCount} struk berstatus draft (belum dikonfirmasi) yang TIDAK dihitung di atas.`,
+      );
+    }
   }
 
   return lines.filter((l) => l !== undefined).join("\n");

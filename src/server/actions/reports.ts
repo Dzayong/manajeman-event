@@ -96,12 +96,18 @@ export async function reviseReportViaChat(
   const auth = await authorizeManage(report.eventId);
   if ("error" in auth) return { error: auth.error };
 
+  const context = await buildEventContext(report.eventId, {
+    includeFinance: report.type === "LPJ_DRAFT",
+  });
+  if (!context) return { error: "Event tidak ditemukan." };
+
   let result;
   try {
     result = await reviseReport({
       type: report.type,
       currentContent: report.content,
       instruction: trimmed,
+      context,
     });
   } catch (e) {
     console.error("revise report failed:", e);

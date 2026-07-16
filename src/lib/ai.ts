@@ -190,6 +190,11 @@ export async function reviseReport(params: {
   type: "PROGRESS_SUMMARY" | "LPJ_DRAFT";
   currentContent: string;
   instruction: string;
+  /** Fresh, real event/finance data (same builder used to draft the
+   * document originally) — without this, the model only sees its own
+   * prior prose and, when asked for "more detail", has nothing real left
+   * to draw from except making something up. */
+  context: string;
 }): Promise<ReviseResult> {
   if (isMock()) {
     await new Promise((r) => setTimeout(r, 900));
@@ -207,11 +212,15 @@ export async function reviseReport(params: {
     messages: [
       {
         role: "system",
-        content: `Kamu asisten sekretaris himpunan yang membantu merevisi ${label} lewat percakapan. Balas HANYA JSON valid: {"reply":"...","revised_content":"..."}. "reply" adalah balasan singkat (maksimal 2 kalimat) menjelaskan apa yang kamu ubah, bahasa Indonesia. "revised_content" adalah versi LENGKAP dokumen setelah revisi (bukan hanya bagian yang berubah), bahasa Indonesia formal. Jangan mengarang data yang tidak ada di dokumen asli.`,
+        content: `Kamu asisten sekretaris himpunan yang membantu merevisi ${label} lewat percakapan. Balas HANYA JSON valid: {"reply":"...","revised_content":"..."}. "reply" adalah balasan singkat (maksimal 2 kalimat) menjelaskan apa yang kamu ubah, bahasa Indonesia. "revised_content" adalah versi LENGKAP dokumen setelah revisi (bukan hanya bagian yang berubah), bahasa Indonesia formal.
+
+ATURAN PALING PENTING: kamu hanya boleh memakai nama, angka, dan rincian yang benar-benar ada di blok "DATA ASLI DARI SISTEM" di bawah, atau yang sudah ada di dokumen saat ini. Kalau user minta detail/rincian yang TIDAK ada di data asli (misalnya minta breakdown item padahal datanya cuma total), JANGAN mengarang nama item atau angka apa pun — jujur katakan di "reply" bahwa data serinci itu belum tercatat di sistem, dan biarkan bagian itu apa adanya di "revised_content". Ini laporan pertanggungjawaban keuangan; angka yang tidak berdasar data asli adalah pelanggaran serius, bukan cuma salah ketik.
+
+Dokumen ini teks polos (bukan halaman yang merender gambar). Kalau user minta "tambahkan foto" atau "lampirkan foto", JANGAN membuat link gambar palsu (seperti ![Foto](nama_file.jpg)) — foto struk dan dokumentasi asli sudah bisa dicetak sebagai lampiran sungguhan lewat tombol "Lampiran Foto" di halaman laporan ini. Jelaskan itu di "reply", dan di "revised_content" cukup tulis satu kalimat singkat yang merujuk ke halaman "Lampiran Foto" tersebut (bukan daftar gambar).`,
       },
       {
         role: "user",
-        content: `DOKUMEN SAAT INI:\n${params.currentContent}\n\nINSTRUKSI REVISI:\n${params.instruction}`,
+        content: `DATA ASLI DARI SISTEM (sumber kebenaran, gunakan ini untuk revisi angka/rincian):\n${params.context}\n\nDOKUMEN SAAT INI:\n${params.currentContent}\n\nINSTRUKSI REVISI:\n${params.instruction}`,
       },
     ],
     max_tokens: 1500,
@@ -235,7 +244,7 @@ export async function draftLpj(context: string): Promise<string> {
       {
         role: "system",
         content:
-          "Kamu asisten sekretaris himpunan mahasiswa. Susun DRAFT Laporan Pertanggungjawaban (LPJ) resmi dari data berikut, mengikuti struktur baku LPJ kampus: I. Pendahuluan (latar belakang & tujuan singkat), II. Nama dan Tema Kegiatan, III. Waktu dan Tempat Pelaksanaan, IV. Susunan Kepanitiaan (tulis SEMUA nama sesuai data, dikelompokkan per divisi), V. Gambaran Pelaksanaan per Divisi, VI. Realisasi Anggaran (buat tabel markdown: Pos | Anggaran | Realisasi | Selisih, lalu baris Total), VII. Evaluasi dan Kendala, VIII. Penutup. Gunakan HANYA nama, angka, dan data yang benar-benar ada di bawah — jangan mengarang siapa pun atau angka apa pun yang tidak tercantum. Bahasa Indonesia formal. Maksimal 700 kata.",
+          "Kamu asisten sekretaris himpunan mahasiswa. Susun DRAFT Laporan Pertanggungjawaban (LPJ) resmi dari data berikut, mengikuti struktur baku LPJ kampus: I. Pendahuluan (latar belakang & tujuan singkat), II. Nama dan Tema Kegiatan, III. Waktu dan Tempat Pelaksanaan, IV. Susunan Kepanitiaan (tulis SEMUA nama sesuai data, dikelompokkan per divisi), V. Gambaran Pelaksanaan per Divisi, VI. Realisasi Anggaran (buat tabel markdown: Pos | Anggaran | Realisasi | Selisih, lalu baris Total — realisasi HANYA dari data yang berstatus terkonfirmasi), VII. Evaluasi dan Kendala, VIII. Lampiran (satu kalimat singkat: bukti foto struk dan dokumentasi kegiatan tersedia di halaman 'Lampiran Foto' pada laporan ini, siap dicetak/disimpan sebagai PDF — JANGAN membuat link gambar palsu seperti ![foto](nama.jpg), dokumen ini teks polos), IX. Penutup. Gunakan HANYA nama, angka, dan data yang benar-benar ada di bawah — jangan mengarang siapa pun atau angka apa pun yang tidak tercantum. Kalau data yang dibutuhkan untuk suatu bagian tidak tersedia, katakan itu apa adanya, jangan mengarang. Bahasa Indonesia formal. Maksimal 700 kata.",
       },
       { role: "user", content: context },
     ],

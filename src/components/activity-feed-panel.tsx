@@ -64,7 +64,7 @@ export function ActivityFeedPanel({
             Belum ada aktivitas penting dalam 24 jam terakhir.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
             {activities.map((item) => (
               <div key={item.id} className="flex gap-3">
                 <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">

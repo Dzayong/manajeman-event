@@ -18,6 +18,8 @@ import { MilestonesPanel } from "./milestones-panel";
 import { AttendancePanel } from "./attendance-panel";
 import { AiPanel } from "./ai-panel";
 import { EventDocumentsPanel } from "./event-documents-panel";
+import { CountdownCard } from "@/components/countdown-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const metadata = { title: "Workspace event — Sistem Kepanitiaan HMIF" };
 
@@ -119,27 +121,29 @@ export default async function EventWorkspacePage({
   const divisionNames = new Map(event.divisions.map((d) => [d.id, d.name]));
 
   return (
-    <div>
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             {event.name}
           </h1>
           {access.readOnly && (
-            <Badge variant="secondary">
-              <Eye className="mr-1 h-3 w-3" />
+            <Badge variant="secondary" className="gap-1 bg-slate-100 text-slate-800 border-slate-200">
+              <Eye className="h-3 w-3" />
               Hanya lihat (SC)
             </Badge>
           )}
           {access.position && (
-            <Badge>{POSITION_LABELS[access.position]}</Badge>
+            <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200">
+              {POSITION_LABELS[access.position]}
+            </Badge>
           )}
         </div>
         <div className="flex items-center gap-4">
           <Button asChild size="sm" variant="outline">
             <Link href={`/events/${event.id}/finance`}>
-              <Wallet className="mr-1 h-4 w-4" />
-              Keuangan
+              <Wallet className="mr-1.5 h-4 w-4" />
+              Keuangan (RAB)
             </Link>
           </Button>
           {allTasks.length > 0 && (
@@ -164,13 +168,171 @@ export default async function EventWorkspacePage({
       </div>
 
       <div
-        className={`mt-4 rounded-lg border px-4 py-2.5 text-sm ${VERDICT_STYLE[verdict.level]}`}
+        className={`rounded-lg border px-4 py-2.5 text-sm font-medium ${VERDICT_STYLE[verdict.level]}`}
       >
         {verdict.text}
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
+      {/* Modern Tabs Navigation */}
+      <Tabs defaultValue="ringkasan" className="w-full">
+        {/* Scrollable list on mobile */}
+        <div className="w-full overflow-x-auto pb-1">
+          <TabsList className="flex w-max min-w-full md:w-full md:grid md:grid-cols-5 bg-slate-100 p-1 rounded-lg">
+            <TabsTrigger value="ringkasan" className="px-4 py-2 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              Ringkasan
+            </TabsTrigger>
+            <TabsTrigger value="divisi" className="px-4 py-2 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              Divisi &amp; Tugas
+            </TabsTrigger>
+            <TabsTrigger value="pengumuman" className="px-4 py-2 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              Pengumuman (Blast)
+            </TabsTrigger>
+            <TabsTrigger value="dokumen" className="px-4 py-2 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              Dokumen Bersama
+            </TabsTrigger>
+            <TabsTrigger value="absensi" className="px-4 py-2 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              Presensi Panitia
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Tab Contents */}
+        <TabsContent value="ringkasan" className="mt-6 space-y-6">
+          <CountdownCard
+            startDate={event.startDate ? event.startDate.toISOString() : null}
+            eventName={event.name}
+            milestones={event.milestones.map((m) => ({
+              id: m.id,
+              title: m.title,
+              dueDate: m.dueDate ? m.dueDate.toISOString() : null,
+              isDone: m.isDone,
+            }))}
+          />
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              <MilestonesPanel
+                eventId={event.id}
+                canManage={manager}
+                milestones={event.milestones.map((m) => ({
+                  id: m.id,
+                  title: m.title,
+                  dueDate: m.dueDate ? m.dueDate.toISOString() : null,
+                  isDone: m.isDone,
+                }))}
+              />
+              <AiPanel
+                eventId={event.id}
+                canManage={manager}
+                isPengurus={access.isPengurus}
+                reports={event.reports.map((r) => ({
+                  id: r.id,
+                  type: r.type,
+                  createdAt: r.createdAt.toISOString(),
+                }))}
+              />
+              {overdueTasks.length > 0 && (
+                <Card className="border-red-200 bg-red-50/10">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base font-bold text-red-800">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                      Perlu Perhatian (Tugas Telat)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {overdueTasks.slice(0, 3).map((t, i) => {
+                      const picName = t.pic?.name ?? null;
+                      const color = picName ? avatarColor(picName) : null;
+                      const daysLate = Math.floor(
+                        (now.getTime() - t.deadline!.getTime()) / 86_400_000,
+                      );
+                      return (
+                        <div key={i} className="flex items-start gap-3 border-b pb-3 last:border-0 last:pb-0">
+                          <span
+                            title={picName ?? "Belum ada PIC"}
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                              color
+                                ? `${color.bg} ${color.text}`
+                                : "border border-dashed border-slate-300 text-slate-400"
+                            }`}
+                          >
+                            {picName ? initials(picName) : "?"}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">
+                              {t.title}
+                            </p>
+                            <p className="text-xs text-red-600 font-medium">
+                              Divisi {t.divisionName} · Telat {daysLate} hari
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {overdueTasks.length > 3 && (
+                      <p className="text-xs text-slate-500 font-medium pt-1">
+                        +{overdueTasks.length - 3} tugas telat lainnya
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+            <div className="space-y-6">
+              <ActivityFeedPanel
+                activities={event.activityLogs.map((activity) => ({
+                  id: activity.id,
+                  action: activity.action,
+                  detail: activity.detail,
+                  createdAt: activity.createdAt.toISOString(),
+                  userName: activity.user.name,
+                  divisionName: activity.divisionId
+                    ? (divisionNames.get(activity.divisionId) ?? null)
+                    : null,
+                }))}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="divisi" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-bold">Progress per Divisi</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              {event.divisions.length === 0 && (
+                <p className="text-sm text-slate-500 col-span-2 py-6 text-center">Belum ada divisi.</p>
+              )}
+              {event.divisions.map((d) => {
+                const total = d.tasks.length;
+                const done = d.tasks.filter((t) => t.status === "DONE").length;
+                const inProgress = d.tasks.filter(
+                  (t) => t.status === "IN_PROGRESS",
+                ).length;
+                const todo = d.tasks.filter((t) => t.status === "TODO").length;
+                return (
+                  <Link
+                    key={d.id}
+                    href={`/divisions/${d.id}`}
+                    className="block rounded-lg border p-4 transition-all duration-200 hover:border-slate-400 hover:shadow-sm bg-white"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-slate-900">{d.name}</p>
+                      <span className="flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                        {done}/{total} tugas · {d._count.memberships} panitia
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                    <StatusBar todo={todo} inProgress={inProgress} done={done} />
+                  </Link>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pengumuman" className="mt-6">
           <AnnouncementsPanel
             eventId={event.id}
             canOperate={operator}
@@ -192,7 +354,9 @@ export default async function EventWorkspacePage({
               })),
             }))}
           />
+        </TabsContent>
 
+        <TabsContent value="dokumen" className="mt-6">
           <EventDocumentsPanel
             eventId={event.id}
             canManage={manager}
@@ -206,42 +370,9 @@ export default async function EventWorkspacePage({
               createdAt: d.createdAt.toISOString(),
             }))}
           />
+        </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Progress per divisi</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {event.divisions.length === 0 && (
-                <p className="text-sm text-slate-500">Belum ada divisi.</p>
-              )}
-              {event.divisions.map((d) => {
-                const total = d.tasks.length;
-                const done = d.tasks.filter((t) => t.status === "DONE").length;
-                const inProgress = d.tasks.filter(
-                  (t) => t.status === "IN_PROGRESS",
-                ).length;
-                const todo = d.tasks.filter((t) => t.status === "TODO").length;
-                return (
-                  <Link
-                    key={d.id}
-                    href={`/divisions/${d.id}`}
-                    className="block rounded-lg border p-3 transition-colors hover:border-slate-400"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-slate-900">{d.name}</p>
-                      <span className="flex items-center gap-1 text-sm text-slate-500">
-                        {done}/{total} tugas · {d._count.memberships} anggota
-                        <ArrowRight className="h-4 w-4" />
-                      </span>
-                    </div>
-                    <StatusBar todo={todo} inProgress={inProgress} done={done} />
-                  </Link>
-                );
-              })}
-            </CardContent>
-          </Card>
-
+        <TabsContent value="absensi" className="mt-6">
           <AttendancePanel
             eventId={event.id}
             canOperate={operator}
@@ -255,90 +386,8 @@ export default async function EventWorkspacePage({
             }))}
             memberCount={event.memberships.length}
           />
-        </div>
-
-        <div className="space-y-6">
-          <ActivityFeedPanel
-            activities={event.activityLogs.map((activity) => ({
-              id: activity.id,
-              action: activity.action,
-              detail: activity.detail,
-              createdAt: activity.createdAt.toISOString(),
-              userName: activity.user.name,
-              divisionName: activity.divisionId
-                ? (divisionNames.get(activity.divisionId) ?? null)
-                : null,
-            }))}
-          />
-
-          {overdueTasks.length > 0 && (
-            <Card className="border-red-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base text-red-700">
-                  <AlertTriangle className="h-4 w-4" />
-                  Perlu perhatian
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {overdueTasks.slice(0, 3).map((t, i) => {
-                  const picName = t.pic?.name ?? null;
-                  const color = picName ? avatarColor(picName) : null;
-                  const daysLate = Math.floor(
-                    (now.getTime() - t.deadline!.getTime()) / 86_400_000,
-                  );
-                  return (
-                    <div key={i} className="flex items-start gap-2">
-                      <span
-                        title={picName ?? "Belum ada PIC"}
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium ${
-                          color
-                            ? `${color.bg} ${color.text}`
-                            : "border border-dashed border-slate-300 text-slate-400"
-                        }`}
-                      >
-                        {picName ? initials(picName) : "?"}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {t.title}
-                        </p>
-                        <p className="text-xs text-red-600">
-                          {t.divisionName} · telat {daysLate} hari
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-                {overdueTasks.length > 3 && (
-                  <p className="text-xs text-slate-500">
-                    +{overdueTasks.length - 3} tugas telat lainnya
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-          <MilestonesPanel
-            eventId={event.id}
-            canManage={manager}
-            milestones={event.milestones.map((m) => ({
-              id: m.id,
-              title: m.title,
-              dueDate: m.dueDate ? m.dueDate.toISOString() : null,
-              isDone: m.isDone,
-            }))}
-          />
-          <AiPanel
-            eventId={event.id}
-            canManage={manager}
-            isPengurus={access.isPengurus}
-            reports={event.reports.map((r) => ({
-              id: r.id,
-              type: r.type,
-              createdAt: r.createdAt.toISOString(),
-            }))}
-          />
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -38,6 +38,7 @@ model User {
   reports          Report[]
   announcements    Announcement[]
   taskComments     TaskComment[]
+  reviewedProposals Proposal[]   @relation("ProposalReviewer")
 }
 
 // ---------- Events & structure ----------
@@ -73,6 +74,7 @@ model Event {
   reports            Report[]
   documents          Document[]
   announcements      Announcement[]
+  proposal           Proposal?
 }
 
 model Division {
@@ -420,3 +422,31 @@ model Report {
 
   @@index([eventId, type])
 }
+
+enum ProposalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model Proposal {
+  id            Int            @id @default(autoincrement())
+  eventId       Int            @unique
+  latarBelakang String?        @db.Text
+  tujuan        String?        @db.Text
+  sasaran       String?        @db.Text
+  tema          String?        @db.VarChar(200)
+  status        ProposalStatus @default(DRAFT)
+  submittedAt   DateTime?
+  reviewedById  Int?
+  reviewNote    String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  event      Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("ProposalReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([reviewedById])
+}
+

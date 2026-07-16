@@ -11,7 +11,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
-      <header className="border-b bg-white">
+      <header className="border-b bg-white print:hidden">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <Link
             href="/dashboard"

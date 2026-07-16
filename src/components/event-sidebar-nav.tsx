@@ -9,6 +9,7 @@ import {
   Settings,
   Users,
   Wallet,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,7 @@ function NavLinks({
   const workspaceHref = `/events/${eventId}/workspace`;
   const financeHref = `/events/${eventId}/finance`;
   const settingsHref = `/events/${eventId}`;
+  const proposalHref = `/events/${eventId}/proposal`;
 
   const linkClass = (active: boolean) =>
     cn(
@@ -60,6 +62,15 @@ function NavLinks({
       >
         <LayoutDashboard className="h-4 w-4 shrink-0" />
         Ringkasan
+      </Link>
+
+      <Link
+        href={proposalHref}
+        onClick={onNavigate}
+        className={linkClass(pathname.startsWith(proposalHref) || pathname.startsWith(`/events/${eventId}/surat`))}
+      >
+        <FileText className="h-4 w-4 shrink-0" />
+        Proposal &amp; Surat
       </Link>
 
       {divisions.length > 0 && (
@@ -118,7 +129,7 @@ export function EventSidebarNav(props: Props) {
   return (
     <>
       {/* Desktop: static column */}
-      <aside className="hidden w-56 shrink-0 border-r bg-white px-3 py-4 lg:block">
+      <aside className="hidden w-56 shrink-0 border-r bg-white px-3 py-4 lg:block print:hidden">
         <p className="mb-3 truncate px-3 text-sm font-semibold text-slate-900">
           {props.eventName}
         </p>
@@ -126,7 +137,7 @@ export function EventSidebarNav(props: Props) {
       </aside>
 
       {/* Mobile: drawer behind a menu button */}
-      <div className="border-b bg-white px-4 py-2 lg:hidden">
+      <div className="border-b bg-white px-4 py-2 lg:hidden print:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm">

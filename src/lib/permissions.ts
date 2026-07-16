@@ -17,14 +17,22 @@ export async function getEventAccess(
   session: SessionPayload,
   eventId: number,
 ): Promise<EventAccess | null> {
+  const event = await db.event.findUnique({
+    where: { id: eventId },
+    select: { status: true },
+  });
+  if (!event) return null;
+
+  const isDone = event.status === "DONE";
+
   if (session.role === "PENGURUS") {
     return {
       eventId,
       isPengurus: true,
       position: null,
       divisionId: null,
-      canManageEvent: true,
-      readOnly: false,
+      canManageEvent: !isDone,
+      readOnly: isDone,
     };
   }
 
@@ -39,9 +47,10 @@ export async function getEventAccess(
     position: membership.position,
     divisionId: membership.divisionId,
     canManageEvent:
-      membership.position === "KETUA_PANITIA" ||
-      membership.position === "SEKRETARIS",
-    readOnly: membership.position === "SC",
+      !isDone &&
+      (membership.position === "KETUA_PANITIA" ||
+        membership.position === "SEKRETARIS"),
+    readOnly: isDone || membership.position === "SC",
   };
 }
 

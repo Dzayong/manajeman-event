@@ -408,7 +408,7 @@ export function TaskBoard({
         </div>
       )}
 
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext id="division-task-board" sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="grid gap-4 md:grid-cols-3">
           {COLUMNS.map((col) => {
             const colTasks = tasks.filter((t) => t.status === col.status);

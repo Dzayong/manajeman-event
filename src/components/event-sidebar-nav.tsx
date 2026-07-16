@@ -160,15 +160,9 @@ export function EventSidebarNav(props: Props) {
 
   return (
     <>
-<<<<<<< HEAD
-      {/* Desktop: static column */}
-      <aside className="hidden w-56 shrink-0 bg-white/70 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 shadow-sm h-fit lg:block print:hidden">
-        <p className="mb-3 truncate px-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-=======
       {/* Desktop: column pinned below the header so the map never scrolls away */}
-      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 self-start overflow-y-auto border-r bg-white px-3 py-4 lg:block print:hidden">
-        <p className="mb-3 truncate px-3 text-sm font-semibold text-slate-900">
->>>>>>> 8c9e157 (Update fitur kepanitiaan)
+      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 self-start overflow-y-auto border-r border-slate-200/40 bg-white/70 backdrop-blur-md px-3 py-4 lg:block print:hidden">
+        <p className="mb-3 truncate px-3 text-xs font-bold text-slate-400 uppercase tracking-wider">
           {props.eventName}
         </p>
         <NavLinks {...props} />

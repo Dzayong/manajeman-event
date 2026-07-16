@@ -10,15 +10,9 @@ export default async function AppLayout({
   const session = await requireSession();
 
   return (
-<<<<<<< HEAD
     <div className="flex min-h-screen flex-col bg-transparent">
       <header className="sticky top-0 z-50 border-b border-slate-200/40 bg-white/75 backdrop-blur-md print:hidden">
-        <div className="mx-auto flex h-15 max-w-5xl items-center justify-between px-4">
-=======
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <header className="sticky top-0 z-40 border-b bg-white print:hidden">
         <div className="flex h-14 w-full items-center justify-between px-4 lg:px-6">
->>>>>>> 8c9e157 (Update fitur kepanitiaan)
           <Link
             href="/dashboard"
             className="group flex items-center gap-2.5 font-bold text-slate-900 transition-all"

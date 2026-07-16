@@ -47,10 +47,10 @@ function NavLinks({
 
   const linkClass = (active: boolean) =>
     cn(
-      "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
       active
-        ? "bg-red-50 font-medium text-red-700"
-        : "text-slate-600 hover:bg-slate-100",
+        ? "bg-red-50/75 border-l-2 border-primary text-primary pl-2.5 rounded-l-none"
+        : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900",
     );
 
   return (
@@ -129,8 +129,8 @@ export function EventSidebarNav(props: Props) {
   return (
     <>
       {/* Desktop: static column */}
-      <aside className="hidden w-56 shrink-0 border-r bg-white px-3 py-4 lg:block print:hidden">
-        <p className="mb-3 truncate px-3 text-sm font-semibold text-slate-900">
+      <aside className="hidden w-56 shrink-0 bg-white/70 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 shadow-sm h-fit lg:block print:hidden">
+        <p className="mb-3 truncate px-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
           {props.eventName}
         </p>
         <NavLinks {...props} />

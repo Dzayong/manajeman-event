@@ -178,7 +178,7 @@ export default async function DashboardPage() {
     };
 
     return (
-      <div>
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 lg:px-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Event</h1>
@@ -301,7 +301,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <div>
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 lg:px-8">
       <h1 className="text-2xl font-semibold text-slate-900">
         Kepanitiaanku
       </h1>

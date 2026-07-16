@@ -4,7 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ClipboardCheck,
+  FolderOpen,
   LayoutDashboard,
+  Megaphone,
   Menu,
   Settings,
   Users,
@@ -41,6 +44,9 @@ function NavLinks({
   const pathname = usePathname();
 
   const workspaceHref = `/events/${eventId}/workspace`;
+  const announcementsHref = `/events/${eventId}/announcements`;
+  const documentsHref = `/events/${eventId}/documents`;
+  const attendanceHref = `/events/${eventId}/attendance`;
   const financeHref = `/events/${eventId}/finance`;
   const settingsHref = `/events/${eventId}`;
   const proposalHref = `/events/${eventId}/proposal`;
@@ -53,6 +59,9 @@ function NavLinks({
         : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900",
     );
 
+  const sectionClass =
+    "px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-slate-400";
+
   return (
     <nav className="space-y-1">
       <Link
@@ -63,21 +72,34 @@ function NavLinks({
         <LayoutDashboard className="h-4 w-4 shrink-0" />
         Ringkasan
       </Link>
-
       <Link
-        href={proposalHref}
+        href={announcementsHref}
         onClick={onNavigate}
-        className={linkClass(pathname.startsWith(proposalHref) || pathname.startsWith(`/events/${eventId}/surat`))}
+        className={linkClass(pathname.startsWith(announcementsHref))}
       >
-        <FileText className="h-4 w-4 shrink-0" />
-        Proposal &amp; Surat
+        <Megaphone className="h-4 w-4 shrink-0" />
+        Pengumuman
+      </Link>
+      <Link
+        href={documentsHref}
+        onClick={onNavigate}
+        className={linkClass(pathname.startsWith(documentsHref))}
+      >
+        <FolderOpen className="h-4 w-4 shrink-0" />
+        Dokumen
+      </Link>
+      <Link
+        href={attendanceHref}
+        onClick={onNavigate}
+        className={linkClass(pathname.startsWith(attendanceHref))}
+      >
+        <ClipboardCheck className="h-4 w-4 shrink-0" />
+        Presensi
       </Link>
 
       {divisions.length > 0 && (
-        <div className="pt-2">
-          <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
-            Divisi
-          </p>
+        <div>
+          <p className={sectionClass}>Divisi</p>
           {divisions.map((d) => {
             const href = `/divisions/${d.id}`;
             return (
@@ -95,30 +117,40 @@ function NavLinks({
         </div>
       )}
 
-      {(canManageFinance || canManageEvent) && (
-        <div className="space-y-1 pt-2">
-          {canManageFinance && (
-            <Link
-              href={financeHref}
-              onClick={onNavigate}
-              className={linkClass(pathname.startsWith(financeHref))}
-            >
-              <Wallet className="h-4 w-4 shrink-0" />
-              Keuangan
-            </Link>
+      <div>
+        <p className={sectionClass}>Administrasi</p>
+        <Link
+          href={proposalHref}
+          onClick={onNavigate}
+          className={linkClass(
+            pathname.startsWith(proposalHref) ||
+              pathname.startsWith(`/events/${eventId}/surat`),
           )}
-          {canManageEvent && (
-            <Link
-              href={settingsHref}
-              onClick={onNavigate}
-              className={linkClass(pathname === settingsHref)}
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              Panitia &amp; Pengaturan
-            </Link>
-          )}
-        </div>
-      )}
+        >
+          <FileText className="h-4 w-4 shrink-0" />
+          Proposal &amp; Surat
+        </Link>
+        {canManageFinance && (
+          <Link
+            href={financeHref}
+            onClick={onNavigate}
+            className={linkClass(pathname.startsWith(financeHref))}
+          >
+            <Wallet className="h-4 w-4 shrink-0" />
+            Keuangan
+          </Link>
+        )}
+        {canManageEvent && (
+          <Link
+            href={settingsHref}
+            onClick={onNavigate}
+            className={linkClass(pathname === settingsHref)}
+          >
+            <Settings className="h-4 w-4 shrink-0" />
+            Panitia &amp; Pengaturan
+          </Link>
+        )}
+      </div>
     </nav>
   );
 }
@@ -128,16 +160,22 @@ export function EventSidebarNav(props: Props) {
 
   return (
     <>
+<<<<<<< HEAD
       {/* Desktop: static column */}
       <aside className="hidden w-56 shrink-0 bg-white/70 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 shadow-sm h-fit lg:block print:hidden">
         <p className="mb-3 truncate px-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+=======
+      {/* Desktop: column pinned below the header so the map never scrolls away */}
+      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 self-start overflow-y-auto border-r bg-white px-3 py-4 lg:block print:hidden">
+        <p className="mb-3 truncate px-3 text-sm font-semibold text-slate-900">
+>>>>>>> 8c9e157 (Update fitur kepanitiaan)
           {props.eventName}
         </p>
         <NavLinks {...props} />
       </aside>
 
       {/* Mobile: drawer behind a menu button */}
-      <div className="border-b bg-white px-4 py-2 lg:hidden print:hidden">
+      <div className="sticky top-14 z-30 border-b bg-white px-4 py-2 lg:hidden print:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm">

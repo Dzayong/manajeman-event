@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/authz";
 import { getEventAccess } from "@/lib/permissions";
 import { LetterClient } from "./letter-client";
-import { EventSidebar } from "@/components/event-sidebar";
 
 export const metadata = { title: "Cetak Surat — Sistem Kepanitiaan HMIF" };
 

@@ -7,7 +7,6 @@ import { getEventAccess } from "@/lib/permissions";
 import { ProposalForm } from "./proposal-form";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { EventSidebar } from "@/components/event-sidebar";
 
 export const metadata = { title: "Proposal Event — Sistem Kepanitiaan HMIF" };
 

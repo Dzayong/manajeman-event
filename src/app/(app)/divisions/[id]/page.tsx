@@ -150,9 +150,9 @@ export default async function DivisionWorkspacePage({
   });
 
   return (
-    <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-6">
+    <div className="flex flex-1 flex-col lg:flex-row">
       <EventSidebar eventId={division.event.id} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 px-4 py-6 lg:px-8">
       <Link
         href={access.isPengurus ? `/events/${division.event.id}` : "/dashboard"}
         className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900"

@@ -84,12 +84,15 @@ export function AnnouncementsPanel({
   divisions,
   canOperate,
   showForm = false,
+  /** Off when the surrounding page already carries the "Pengumuman" heading. */
+  showHeader = true,
 }: {
   eventId: number;
   announcements: AnnouncementRow[];
   divisions: DivisionOption[];
   canOperate: boolean;
   showForm?: boolean;
+  showHeader?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [title, setTitle] = useState("");
@@ -136,18 +139,20 @@ export function AnnouncementsPanel({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Megaphone className="h-4 w-4" />
-          Pengumuman
-        </CardTitle>
-        {showForm && (
-          <p className="text-sm text-slate-500">
-            Info lintas-divisi yang perlu diketahui semua atau beberapa tim.
-          </p>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
+      {showHeader && (
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Megaphone className="h-4 w-4" />
+            Pengumuman
+          </CardTitle>
+          {showForm && (
+            <p className="text-sm text-slate-500">
+              Info lintas-divisi yang perlu diketahui semua atau beberapa tim.
+            </p>
+          )}
+        </CardHeader>
+      )}
+      <CardContent className={showHeader ? "space-y-4" : "space-y-4 pt-6"}>
         {showForm && canOperate && (
           <form
             onSubmit={handleAdd}

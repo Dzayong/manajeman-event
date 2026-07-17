@@ -120,7 +120,7 @@ export function ProposalForm({ eventId, proposal, isPengurus, canManage }: Propo
     <div className="space-y-6">
       {/* Status Banners */}
       {isApproved && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 dark:border-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-200">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
           <div className="flex gap-3">
             <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
@@ -129,7 +129,7 @@ export function ProposalForm({ eventId, proposal, isPengurus, canManage }: Propo
                 Proposal ini telah disetujui oleh Pengurus ({proposal?.reviewedBy?.name}). Anda sekarang dapat mengakses **Generator Surat** untuk mencetak surat izin, surat tugas, atau surat undangan resmi.
               </p>
               {proposal?.reviewNote && (
-                <p className="text-sm mt-2 italic bg-emerald-100/50 dark:bg-emerald-950/40 p-2 rounded">
+                <p className="text-sm mt-2 italic bg-emerald-100/50 p-2 rounded">
                   Catatan Reviewer: &quot;{proposal.reviewNote}&quot;
                 </p>
               )}
@@ -147,7 +147,7 @@ export function ProposalForm({ eventId, proposal, isPengurus, canManage }: Propo
       )}
 
       {isSubmitted && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-950 dark:bg-amber-950/20 dark:text-amber-200">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
           <div className="flex gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
@@ -161,7 +161,7 @@ export function ProposalForm({ eventId, proposal, isPengurus, canManage }: Propo
       )}
 
       {isRejected && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900 dark:border-red-950 dark:bg-red-950/20 dark:text-red-200">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900">
           <div className="flex gap-3">
             <XCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
             <div>
@@ -170,7 +170,7 @@ export function ProposalForm({ eventId, proposal, isPengurus, canManage }: Propo
                 Proposal ini perlu diperbaiki berdasarkan masukan dari Pengurus ({proposal?.reviewedBy?.name}). Silakan perbaiki data di bawah dan ajukan kembali.
               </p>
               {proposal?.reviewNote && (
-                <p className="text-sm mt-2 font-medium bg-red-100/50 dark:bg-red-950/40 p-2 rounded">
+                <p className="text-sm mt-2 font-medium bg-red-100/50 p-2 rounded">
                   Catatan Reviewer: &quot;{proposal.reviewNote}&quot;
                 </p>
               )}

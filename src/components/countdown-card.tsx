@@ -47,7 +47,7 @@ export function CountdownCard({
 
   if (candidates.length === 0) {
     return (
-      <Card className="overflow-hidden border-slate-100 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-900/20">
+      <Card className="overflow-hidden border-slate-100 bg-slate-50/30">
         <CardContent className="flex items-center gap-3 p-4 text-slate-500">
           <Calendar className="h-5 w-5 shrink-0" />
           <span className="text-sm font-medium">Tidak ada agenda terdekat</span>
@@ -78,33 +78,34 @@ export function CountdownCard({
   const daysLeft = activeTarget.daysLeft;
   const isOverdue = daysLeft < 0;
 
-  // Determine urgency tier (normal, soon, overdue)
+  // Determine urgency tier (normal, soon, overdue) -- same 0-7-day "soon"
+  // window as the task deadline badges (lib/urgency.ts), so the same color
+  // always means the same thing across the app. Red is reserved for dates
+  // that have actually passed, never for "getting close."
   let urgency: "normal" | "soon" | "overdue" = "normal";
   if (isOverdue) {
     urgency = "overdue";
-  } else if (daysLeft <= 3) {
-    urgency = "overdue"; // 3 days or less is highly critical (overdue-style alerts)
   } else if (daysLeft <= 7) {
-    urgency = "soon"; // 4 to 7 days is soon (amber alerts)
+    urgency = "soon";
   }
 
   // Styling maps based on sisa hari
   const cardStyles = {
-    overdue: "border-red-200 bg-red-50/40 text-red-900 dark:border-red-950 dark:bg-red-950/20 dark:text-red-200",
-    soon: "border-amber-200 bg-amber-50/40 text-amber-900 dark:border-amber-950 dark:bg-amber-950/20 dark:text-amber-200",
-    normal: "border-slate-200 bg-slate-50/40 text-slate-800 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-200",
+    overdue: "border-red-200 bg-red-50/40 text-red-900",
+    soon: "border-amber-200 bg-amber-50/40 text-amber-900",
+    normal: "border-slate-200 bg-slate-50/40 text-slate-800",
   };
 
   const badgeStyles = {
-    overdue: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-900/50",
-    soon: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50",
-    normal: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700",
+    overdue: "bg-red-100 text-red-700 border border-red-200",
+    soon: "bg-amber-100 text-amber-700 border border-amber-200",
+    normal: "bg-slate-100 text-slate-600 border border-slate-200",
   };
 
   const iconColor = {
-    overdue: "text-red-600 dark:text-red-400",
-    soon: "text-amber-600 dark:text-amber-400",
-    normal: "text-slate-500 dark:text-slate-400",
+    overdue: "text-red-600",
+    soon: "text-amber-600",
+    normal: "text-slate-500",
   };
 
   const pulseEffect = (urgency === "overdue" || (daysLeft >= 0 && daysLeft <= 3)) ? (
@@ -140,9 +141,14 @@ export function CountdownCard({
       )}
     >
       {pulseEffect}
-      <CardContent className="p-4 flex items-start justify-between gap-3">
-        <div className="flex gap-3">
-          <div className={cn("p-2 rounded-lg bg-white/70 dark:bg-slate-900/80 shadow-sm shrink-0", iconColor[urgency])}>
+      <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/70 shadow-sm",
+              iconColor[urgency],
+            )}
+          >
             {isOverdue ? (
               <AlertTriangle className="h-5 w-5" />
             ) : daysLeft <= 3 ? (
@@ -154,13 +160,13 @@ export function CountdownCard({
             )}
           </div>
           <div className="min-w-0">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               {activeTarget.type === "event" ? "Tenggat Utama" : "Tenggat Terdekat"}
             </h4>
-            <p className="text-sm font-bold truncate mt-0.5 text-slate-900 dark:text-white">
+            <p className="text-sm font-bold truncate mt-0.5 text-slate-900">
               {activeTarget.name}
             </p>
-            <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">
+            <p className="text-xs text-slate-500 mt-1">
               Target: {activeTarget.date.toLocaleDateString("id-ID", {
                 weekday: "long",
                 day: "numeric",
@@ -170,7 +176,12 @@ export function CountdownCard({
             </p>
           </div>
         </div>
-        <div className={cn("px-3 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap self-center", badgeStyles[urgency])}>
+        <div
+          className={cn(
+            "self-start rounded-full px-3 py-1.5 text-xs font-extrabold whitespace-nowrap sm:self-center",
+            badgeStyles[urgency],
+          )}
+        >
           {countdownText}
         </div>
       </CardContent>

@@ -174,11 +174,13 @@ export default async function EventWorkspacePage({
                   <Link
                     key={d.id}
                     href={`/divisions/${d.id}`}
-                    className="block rounded-lg border bg-white p-4 transition-all duration-200 hover:border-slate-400 hover:shadow-sm"
+                    className="block min-w-0 rounded-lg border bg-white p-4 transition-all duration-200 hover:border-slate-400 hover:shadow-sm"
                   >
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="font-semibold text-slate-900">{d.name}</p>
-                      <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="min-w-0 truncate font-semibold text-slate-900">
+                        {d.name}
+                      </p>
+                      <span className="flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500">
                         {done}/{total} tugas · {d._count.memberships} panitia
                         <ArrowRight className="h-3.5 w-3.5" />
                       </span>
